@@ -19,12 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-### Third-Party Model Attribution & License Notice
-
-This application integrates with the open-weight **Qwen3 4B Instruct** model developed by the Qwen Team / Alibaba Cloud.
-- Model Identifier: `qwen3:4b-instruct`
-- Model License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
-- Notice: The model weights and inference runtime binaries are not bundled into this repository. They are executed independently by the user via local Ollama inference.
