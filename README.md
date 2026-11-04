@@ -8,8 +8,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.0+-646CFF)](https://vitejs.dev/)
 
----
-
 ## ⚡ Overview
 
 Freelancers and independent consultants routinely agree to fixed-scope projects only to watch profit margins evaporate under "small follow-up requests":
@@ -20,8 +18,6 @@ Freelancers and independent consultants routinely agree to fixed-scope projects 
 Each addition sounds minor in isolation, but together they turn profitable client engagements into dozens of hours of unpaid labor.
 
 **ScopeShield AI** provides a dedicated, privacy-first command center that parses client messages (email, Slack, WhatsApp), compares them against signed contractual clauses, visualizes boundary breaches on a topological **Scope Map**, and generates courteous, client-ready **Change Orders** in seconds.
-
----
 
 ## 🏛️ Key Capabilities
 
@@ -67,8 +63,6 @@ Each project receives its own environment equipped with 5 dedicated tabs:
 - **Proposals**: Active, sent, and approved Change Orders.
 - **History**: Chronological project audit trail.
 
----
-
 ## 🔒 Privacy-First & Zero-Cloud Guarantee
 
 Client contracts and confidential Slack conversations are sensitive business secrets. ScopeShield AI is engineered around local execution:
@@ -76,15 +70,11 @@ Client contracts and confidential Slack conversations are sensitive business sec
 - **Zero Cloud Leakage**: No client messages, budgets, or contract deliverables are dispatched to proprietary cloud APIs.
 - **Offline Fallback Heuristics**: Automatically transitions to verified deterministic contract parsing when Ollama is offline or in sample mode.
 
----
-
 ## 🚀 Quickstart Guide
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [Ollama](https://ollama.com/) (Optional, for local LLM inference)
-
----
 
 ### Step 1: Clone & Install Dependencies
 ```bash
@@ -94,8 +84,6 @@ cd ScopeShield-AI-Intelligent-Scope-Creep-Detection-Freelancer-Protection
 # Install frontend dependencies
 npm install --legacy-peer-deps
 ```
-
----
 
 ### Step 2: (Optional) Pull the Local Open-Weight Model
 ```bash
@@ -107,15 +95,11 @@ ollama run qwen3:4b-instruct
 ```
 > *Note: If Ollama is not installed or running, ScopeShield AI automatically operates in **Verified Sample Mode** using browser-based deterministic contract heuristics.*
 
----
-
 ### Step 3: Launch Frontend Application
 ```bash
 npm run dev
 ```
 Open **[http://localhost:3000](http://localhost:3000)** in your browser.
-
----
 
 ### Step 4: (Optional) Python FastAPI Backend
 For backend API integration and automated pytest test suites:
@@ -138,8 +122,6 @@ uvicorn app.main:app --reload --port 8000
 pytest tests/ -v
 ```
 
----
-
 ## 🧪 Official Demo Scenario
 
 ScopeShield AI includes a pre-loaded, deterministic scenario to test boundary analysis:
@@ -158,8 +140,6 @@ ScopeShield AI includes a pre-loaded, deterministic scenario to test boundary an
 4. **Rush Timeline ("before Friday")** ➔ 🟡 `NEEDS CLARIFICATION` (Milestone reschedule required).
 5. **Change Order Total**: $31$ billable hours = ₹31,000 addendum fee with client approval draft and PDF proposal.
 
----
-
 ## 🛠️ Tech Stack & Architecture
 
 | Layer | Technologies |
@@ -170,14 +150,10 @@ ScopeShield AI includes a pre-loaded, deterministic scenario to test boundary an
 | **Backend (Optional)** | Python 3.11+, FastAPI, Uvicorn, Pytest |
 | **Storage & Persistence** | Browser LocalStorage / IndexedDB with JSON Export/Import |
 
----
-
 ## 📜 License & Attribution
 
 - **Application Codebase**: Released under the [MIT License](LICENSE).
 - **Model Distribution**: `qwen3:4b-instruct` released under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0) by the Qwen Team / Alibaba Cloud.
 - **Inference Runtime**: Powered by [Ollama](https://ollama.com).
-
----
 
 *Crafted with precision for independent creators, developers, and consultants.*
