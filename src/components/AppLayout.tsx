@@ -1,32 +1,36 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
-  LayoutDashboard, 
+  LayoutGrid, 
   FolderKanban, 
-  ScanSearch, 
-  FileSpreadsheet, 
-  History, 
-  Settings, 
+  Radar, 
+  FileText, 
+  Activity, 
+  SlidersHorizontal, 
   HelpCircle, 
   Search, 
   Bell, 
   Plus, 
-  Menu, 
-  X, 
   ChevronRight, 
   Sparkles,
   ExternalLink,
-  CheckCircle,
+  Cpu,
+  Lock,
+  Layers,
+  PanelRightClose,
+  PanelRightOpen,
+  CheckCircle2,
   AlertTriangle,
-  FileText
+  ArrowUpRight
 } from 'lucide-react';
-import { ProjectScope, OllamaConfig } from '../types';
+import { ProjectScope, OllamaConfig, ScopeAnalysis } from '../types';
 
 export interface AppLayoutProps {
   currentTab: string;
   setCurrentTab: (tab: string) => void;
   breadcrumbs?: { label: string; tab?: string }[];
   projects: ProjectScope[];
+  analyses?: ScopeAnalysis[];
   onSelectProject: (id: string) => void;
   onOpenNewProject: () => void;
   isDemoMode: boolean;
@@ -42,6 +46,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   setCurrentTab,
   breadcrumbs,
   projects,
+  analyses = [],
   onSelectProject,
   onOpenNewProject,
   isDemoMode,
@@ -50,21 +55,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onOpenGuide,
   children
 }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [contextPanelOpen, setContextPanelOpen] = useState(true);
+
+  // Active Project Context
+  const primaryProject = projects[0];
 
   const navItems = [
-    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-    { id: 'projects', label: 'My Projects', icon: FolderKanban, badge: projects.length },
-    { id: 'detector', label: 'Scope Analyzer', icon: ScanSearch },
-    { id: 'proposals', label: 'Change Requests', icon: FileSpreadsheet },
-    { id: 'activity', label: 'Activity History', icon: History },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: 'Workspace', icon: LayoutGrid, sub: 'Control Center' },
+    { id: 'projects', label: 'Projects', icon: FolderKanban, badge: projects.length, sub: 'Agreements' },
+    { id: 'detector', label: 'Scope Intelligence', icon: Radar, sub: 'Boundary Analyzer' },
+    { id: 'proposals', label: 'Proposals', icon: FileText, sub: 'Change Orders' },
+    { id: 'activity', label: 'Activity', icon: Activity, sub: 'Audit Trail' },
+    { id: 'settings', label: 'Settings', icon: SlidersHorizontal, sub: 'AI Engine' },
   ];
 
-  // Quick search matching projects
   const filteredProjects = searchQuery.trim() 
     ? projects.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -72,320 +79,325 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       )
     : [];
 
-  const handleNavClick = (tabId: string) => {
-    setCurrentTab(tabId);
-    setMobileMenuOpen(false);
-  };
-
-  const notifications = [
-    {
-      id: 'notif-1',
-      title: 'Revision Cap Reached',
-      desc: 'E-commerce Redesign has exhausted its 2 included revision rounds.',
-      time: '1h ago',
-      unread: true,
-      type: 'warning'
-    },
-    {
-      id: 'notif-2',
-      title: 'CR-2026-081 Ready for Send',
-      desc: '₹31,000 addendum draft prepared for Modern Goods Ltd.',
-      time: '3h ago',
-      unread: false,
-      type: 'info'
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#17213A] flex flex-col lg:flex-row antialiased">
+    <div className="min-h-screen bg-[#F8F7F4] text-[#171A2B] flex flex-col antialiased selection:bg-[#F0EDFF] selection:text-[#4933A8]">
       
-      {/* Mobile Header Bar */}
-      <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[#ECEAF0] sticky top-0 z-30">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#6946D8] flex items-center justify-center text-white shadow-sm">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <span className="font-bold text-sm tracking-tight text-[#17213A]">ScopeShield AI</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onOpenNewProject()}
-            className="p-1.5 rounded-lg bg-[#6946D8] text-white text-xs flex items-center gap-1 font-medium"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-[#85899A] hover:text-[#17213A] rounded-lg hover:bg-[#FAF9F6]"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* FIXED SIDEBAR */}
-      <aside 
-        className={`
-          fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-[#ECEAF0] flex flex-col justify-between transition-transform duration-200 ease-in-out
-          lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
-        {/* Top: Logo & Main Navigation */}
-        <div className="p-4 flex flex-col gap-5">
-          {/* Logo Brand */}
-          <div className="flex items-center justify-between px-2 pt-1">
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => handleNavClick('dashboard')}>
-              <div className="w-8 h-8 rounded-xl bg-[#6946D8] flex items-center justify-center text-white shadow-[0_2px_8px_rgba(105,70,216,0.3)]">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-[14px] text-[#17213A] tracking-tight">ScopeShield</span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-[#F0EBFF] text-[#6946D8]">AI</span>
-                </div>
-                <p className="text-[10px] text-[#85899A] font-medium leading-none mt-0.5">Freelancer Protection</p>
-              </div>
-            </div>
+      {/* 3-PART APPLICATION SHELL */}
+      <div className="flex-1 flex w-full">
+        
+        {/* ================= A. NARROW LEFT NAVIGATION RAIL ================= */}
+        <aside className="w-16 sm:w-20 lg:w-60 shrink-0 bg-[#FFFFFF] border-r border-[#E9E7E2] flex flex-col justify-between py-5 px-2 sm:px-3 z-30 select-none">
+          
+          <div className="space-y-6">
             
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="lg:hidden text-[#85899A] p-1"
+            {/* Custom ScopeShield Monogram Brand */}
+            <div 
+              onClick={() => setCurrentTab('dashboard')}
+              className="flex items-center gap-3 px-2 cursor-pointer group"
             >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Quick Project Creation Button */}
-          <div className="px-1">
-            <button
-              onClick={() => {
-                onOpenNewProject();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#6946D8] hover:bg-[#5b3bc2] text-white text-xs font-semibold shadow-[0_2px_6px_rgba(105,70,216,0.2)] transition-all active:scale-[0.99]"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create New Project</span>
-            </button>
-          </div>
-
-          {/* Navigation Items */}
-          <nav className="flex flex-col gap-0.5 px-1">
-            <div className="px-2.5 py-1 text-[10px] font-semibold tracking-wider text-[#85899A] uppercase">
-              Workspace
-            </div>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavClick(item.id)}
-                  className={`
-                    w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group
-                    ${isActive 
-                      ? 'bg-[#F0EBFF] text-[#6946D8] font-semibold' 
-                      : 'text-[#85899A] hover:text-[#17213A] hover:bg-[#FAF9F6]'
-                    }
-                  `}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-[#6946D8]' : 'text-[#85899A] group-hover:text-[#17213A]'}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge !== undefined && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${isActive ? 'bg-white text-[#6946D8]' : 'bg-[#FAF9F6] text-[#85899A]'}`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Bottom Sidebar: System Status & User Profile */}
-        <div className="p-4 border-t border-[#ECEAF0] flex flex-col gap-3">
-          {/* AI Status Pill */}
-          <div className="p-2.5 rounded-xl bg-[#FAF9F6] border border-[#ECEAF0] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${ollamaConfig.isConnected ? 'bg-[#18A999]' : 'bg-amber-400'}`} />
-              <div className="flex flex-col">
-                <span className="text-[11px] font-semibold text-[#17213A] leading-tight">
-                  {ollamaConfig.isConnected ? 'Local LLM Connected' : isDemoMode ? 'Sample Mode Active' : 'Offline Engine'}
-                </span>
-                <span className="text-[10px] text-[#85899A]">
-                  {ollamaConfig.isConnected ? ollamaConfig.model : 'Verified Heuristics'}
-                </span>
+              <div className="w-10 h-10 rounded-xl bg-[#171A2B] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(23,26,43,0.15)] group-hover:bg-[#7255E8] transition-colors shrink-0">
+                <ShieldCheck className="w-5 h-5 text-[#42B9A8]" />
+              </div>
+              <div className="hidden lg:flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display font-bold text-sm tracking-tight text-[#171A2B]">ScopeShield</span>
+                  <span className="text-[9px] font-mono uppercase font-bold px-1.5 py-0.2 bg-[#F0EDFF] text-[#7255E8] rounded">AI</span>
+                </div>
+                <span className="text-[10px] text-[#777887] font-medium leading-tight">Control Room</span>
               </div>
             </div>
-            <button
-              onClick={onOpenSettings}
-              className="text-[10px] font-medium text-[#6946D8] hover:underline"
-            >
-              Config
-            </button>
+
+            {/* Quick Action Button */}
+            <div className="px-1 hidden lg:block">
+              <button
+                onClick={onOpenNewProject}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#171A2B] hover:bg-[#7255E8] text-white text-xs font-semibold shadow-xs transition-all active:scale-[0.99]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Project</span>
+              </button>
+            </div>
+
+            {/* Navigation Rails */}
+            <nav className="space-y-1">
+              <div className="hidden lg:block px-2 text-[10px] font-mono uppercase text-[#777887] tracking-wider mb-2">
+                Navigation
+              </div>
+
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setCurrentTab(item.id)}
+                    className={`
+                      w-full flex items-center justify-center lg:justify-between p-2.5 lg:px-3 lg:py-2.5 rounded-xl text-xs font-medium transition-all group relative
+                      ${isActive 
+                        ? 'bg-[#F0EDFF] text-[#7255E8] font-semibold' 
+                        : 'text-[#777887] hover:text-[#171A2B] hover:bg-[#F8F7F4]'
+                      }
+                    `}
+                    title={item.label}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-[#7255E8]' : 'text-[#777887] group-hover:text-[#171A2B]'}`} />
+                      <div className="hidden lg:flex flex-col text-left">
+                        <span className="leading-tight">{item.label}</span>
+                        <span className="text-[9px] text-[#777887] font-normal leading-none mt-0.5">{item.sub}</span>
+                      </div>
+                    </div>
+
+                    {item.badge !== undefined && (
+                      <span className={`hidden lg:inline-block text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                        isActive ? 'bg-[#FFFFFF] text-[#7255E8]' : 'bg-[#F8F7F4] text-[#777887]'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+
+                    {/* Active accent tick */}
+                    {isActive && (
+                      <span className="lg:hidden absolute left-0 top-2 bottom-2 w-1 bg-[#7255E8] rounded-r" />
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
           </div>
 
-          {/* Help & Support */}
-          <button
-            onClick={() => {
-              onOpenGuide();
-              setMobileMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-[#85899A] hover:text-[#17213A] hover:bg-[#FAF9F6] transition-colors"
-          >
-            <HelpCircle className="w-4 h-4" />
-            <span>Help & Documentation</span>
-          </button>
+          {/* Bottom Rail: System Status & User Profile */}
+          <div className="space-y-3 pt-4 border-t border-[#E9E7E2]">
+            
+            {/* System Status Pill */}
+            <div 
+              onClick={onOpenSettings}
+              className="p-2 lg:p-2.5 rounded-xl bg-[#F8F7F4] hover:bg-[#F0EDFF]/50 border border-[#E9E7E2] cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-2 justify-center lg:justify-start">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${ollamaConfig.isConnected ? 'bg-[#42B9A8]' : 'bg-amber-400'}`} />
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-[10px] font-bold text-[#171A2B] leading-none">
+                    {ollamaConfig.isConnected ? 'Ollama Online' : 'Sample Mode'}
+                  </span>
+                  <span className="text-[9px] font-mono text-[#777887] mt-0.5">
+                    {ollamaConfig.isConnected ? ollamaConfig.model : 'Verified Heuristics'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-          {/* User Profile */}
-          <div className="pt-2 border-t border-[#ECEAF0] flex items-center justify-between px-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#6946D8] to-[#18A999] text-white flex items-center justify-center text-xs font-bold shadow-sm">
+            {/* Help / Docs */}
+            <button
+              onClick={onOpenGuide}
+              className="w-full flex items-center justify-center lg:justify-start gap-2 p-2 rounded-xl text-xs text-[#777887] hover:text-[#171A2B] hover:bg-[#F8F7F4] transition-colors"
+              title="Documentation"
+            >
+              <HelpCircle className="w-4 h-4 shrink-0" />
+              <span className="hidden lg:inline text-[11px] font-medium">Docs & Philosophy</span>
+            </button>
+
+            {/* User Profile */}
+            <div className="flex items-center justify-center lg:justify-start gap-2.5 pt-2 border-t border-[#E9E7E2] px-1">
+              <div className="w-8 h-8 rounded-lg bg-[#171A2B] text-white flex items-center justify-center font-bold text-xs shrink-0">
                 TG
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-semibold text-[#17213A] leading-tight">Tanya Garg</span>
-                <span className="text-[10px] text-[#85899A]">Freelancer Pro Plan</span>
+              <div className="hidden lg:flex flex-col text-left">
+                <span className="text-xs font-semibold text-[#171A2B] leading-none">Tanya Garg</span>
+                <span className="text-[10px] text-[#777887] font-mono mt-0.5">Independent Pro</span>
               </div>
             </div>
+
           </div>
-        </div>
-      </aside>
 
-      {/* Backdrop for mobile sidebar */}
-      {mobileMenuOpen && (
-        <div 
-          onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 bg-black/20 z-30 lg:hidden backdrop-blur-xs"
-        />
-      )}
+        </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        
-        {/* TOP HEADER */}
-        <header className="sticky top-0 z-20 h-16 bg-white/95 backdrop-blur-md border-b border-[#ECEAF0] px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        {/* ================= B. MAIN WORKSPACE (Largest Area) ================= */}
+        <div className="flex-1 flex flex-col min-w-0 bg-[#F8F7F4]">
           
-          {/* Breadcrumbs & Page Title */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-semibold text-[#17213A] text-sm capitalize">
-              {currentTab === 'dashboard' ? 'Overview' : 
-               currentTab === 'projects' ? 'My Projects' :
-               currentTab === 'detector' ? 'Scope Analyzer' :
-               currentTab === 'proposals' ? 'Change Requests' :
-               currentTab === 'activity' ? 'Activity History' :
-               currentTab === 'settings' ? 'Settings' :
-               currentTab === 'builder' ? 'Project Setup' : currentTab}
-            </span>
-
-            {breadcrumbs && breadcrumbs.length > 0 && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-[#85899A]" />
-                {breadcrumbs.map((b, i) => (
-                  <React.Fragment key={i}>
-                    {i > 0 && <ChevronRight className="w-3 h-3 text-[#85899A]" />}
-                    <span 
-                      onClick={() => b.tab && setCurrentTab(b.tab)}
-                      className={`${b.tab ? 'text-[#85899A] hover:text-[#17213A] cursor-pointer' : 'text-[#17213A] font-medium'}`}
-                    >
-                      {b.label}
-                    </span>
-                  </React.Fragment>
-                ))}
-              </>
-            )}
-          </div>
-
-          {/* Right Header Actions: Search, Notifications, Primary Action */}
-          <div className="flex items-center gap-3">
+          {/* Top Sub-Header */}
+          <header className="h-14 border-b border-[#E9E7E2] bg-[#FFFFFF]/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
             
-            {/* Quick Search Input */}
-            <div className="relative hidden sm:block">
-              <Search className="w-3.5 h-3.5 text-[#85899A] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search projects & scope..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                className="w-56 lg:w-64 pl-8 pr-3 py-1.5 text-xs bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] placeholder-[#85899A] focus:outline-none focus:border-[#6946D8] focus:bg-white transition-all"
-              />
+            {/* Breadcrumbs & Title */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-mono text-[11px] text-[#777887] uppercase tracking-wider">
+                ScopeShield
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-[#777887]" />
+              <span className="font-semibold text-[#171A2B]">
+                {currentTab === 'dashboard' ? 'Workspace Overview' :
+                 currentTab === 'projects' ? 'Active Project Environments' :
+                 currentTab === 'detector' ? 'Scope Intelligence Workspace' :
+                 currentTab === 'proposals' ? 'Change Request Studio' :
+                 currentTab === 'activity' ? 'Audit Log & History' :
+                 currentTab === 'settings' ? 'System & AI Engine' :
+                 currentTab === 'builder' ? 'New Scope Definition' : currentTab}
+              </span>
+              {breadcrumbs && breadcrumbs.map((b, i) => (
+                <React.Fragment key={i}>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#777887]" />
+                  <span className="text-[#171A2B] font-medium">{b.label}</span>
+                </React.Fragment>
+              ))}
+            </div>
 
-              {/* Quick Search Dropdown */}
-              {isSearchFocused && searchQuery.trim() && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-[#ECEAF0] rounded-xl shadow-lg p-2 z-50">
-                  <div className="text-[10px] font-semibold text-[#85899A] uppercase px-2 py-1">Matching Projects</div>
-                  {filteredProjects.length === 0 ? (
-                    <div className="text-xs text-[#85899A] p-2">No matching projects found</div>
-                  ) : (
-                    filteredProjects.map(p => (
+            {/* Actions: Search, Notifications, Context Panel Toggle */}
+            <div className="flex items-center gap-2.5">
+              
+              {/* Search input */}
+              <div className="relative hidden md:block">
+                <Search className="w-3.5 h-3.5 text-[#777887] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Quick lookup..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                  className="w-48 pl-8 pr-2.5 py-1 text-xs bg-[#F8F7F4] border border-[#E9E7E2] rounded-lg text-[#171A2B] placeholder-[#777887] focus:outline-none focus:border-[#7255E8] focus:bg-white"
+                />
+
+                {isSearchFocused && searchQuery.trim() && (
+                  <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-[#E9E7E2] rounded-xl shadow-xl p-2 z-50">
+                    <span className="eyebrow px-2 py-1 block">Projects</span>
+                    {filteredProjects.map(p => (
                       <div
                         key={p.id}
                         onMouseDown={() => {
                           onSelectProject(p.id);
                           setCurrentTab('projects');
                         }}
-                        className="p-2 rounded-lg hover:bg-[#FAF9F6] cursor-pointer text-xs"
+                        className="p-2 hover:bg-[#F8F7F4] rounded-lg cursor-pointer text-xs"
                       >
-                        <p className="font-semibold text-[#17213A]">{p.name}</p>
-                        <p className="text-[10px] text-[#85899A]">{p.clientName} • {p.currency}{p.budget.toLocaleString()}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Notification Bell with interactive popover */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="p-2 rounded-xl text-[#85899A] hover:text-[#17213A] hover:bg-[#FAF9F6] border border-[#ECEAF0] relative transition-colors"
-                title="Notifications"
-              >
-                <Bell className="w-4 h-4" />
-                <span className="w-2 h-2 rounded-full bg-[#6946D8] absolute top-1.5 right-1.5" />
-              </button>
-
-              {notificationsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-[#ECEAF0] rounded-2xl shadow-xl p-3 z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#ECEAF0] mb-2 px-1">
-                    <span className="text-xs font-bold text-[#17213A]">Notifications</span>
-                    <span className="text-[10px] text-[#6946D8] font-medium cursor-pointer hover:underline">Mark all read</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {notifications.map(n => (
-                      <div key={n.id} className="p-2 rounded-xl bg-[#FAF9F6] border border-[#ECEAF0] text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[#17213A]">{n.title}</span>
-                          <span className="text-[9px] text-[#85899A]">{n.time}</span>
-                        </div>
-                        <p className="text-[11px] text-[#85899A] mt-1 leading-snug">{n.desc}</p>
+                        <p className="font-semibold text-[#171A2B]">{p.name}</p>
+                        <p className="text-[10px] text-[#777887] font-mono">{p.clientName}</p>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              {/* Scope Intelligence Shortcut CTA */}
+              <button
+                onClick={() => setCurrentTab('detector')}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#F0EDFF] text-[#7255E8] border border-[#7255E8]/20 text-xs font-semibold hover:bg-[#e4ddff] transition-colors"
+              >
+                <Radar className="w-3.5 h-3.5" />
+                <span>Scope Intelligence</span>
+              </button>
+
+              {/* Context Panel Toggle */}
+              <button
+                onClick={() => setContextPanelOpen(!contextPanelOpen)}
+                className="p-1.5 rounded-lg border border-[#E9E7E2] text-[#777887] hover:text-[#171A2B] hover:bg-[#FFFFFF]"
+                title="Toggle Context Panel"
+              >
+                {contextPanelOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+              </button>
             </div>
 
-            {/* Top Quick Analyze CTA */}
-            <button
-              onClick={() => setCurrentTab('detector')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#6946D8]/20 bg-[#F0EBFF] hover:bg-[#e4dbff] text-[#6946D8] text-xs font-semibold transition-colors"
-            >
-              <ScanSearch className="w-3.5 h-3.5" />
-              <span>Scope Analyzer</span>
-            </button>
-          </div>
-        </header>
+          </header>
 
-        {/* MAIN BODY CONTENT */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {children}
-        </main>
+          {/* Spacious Editorial Workspace Area */}
+          <main className="flex-1 p-5 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto">
+            {children}
+          </main>
+
+        </div>
+
+        {/* ================= C. CONTEXT PANEL (Right-Side Panel) ================= */}
+        {contextPanelOpen && (
+          <aside className="w-72 xl:w-80 shrink-0 bg-[#FFFFFF] border-l border-[#E9E7E2] p-5 hidden xl:flex flex-col justify-between space-y-6 z-20 select-none animate-in slide-in-from-right-4 duration-200">
+            
+            <div className="space-y-6">
+              
+              {/* Context Panel Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#E9E7E2]">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[#42B9A8]" />
+                  <span className="eyebrow text-[#171A2B]">CONTEXT TELEMETRY</span>
+                </div>
+                <span className="text-[10px] font-mono text-[#777887]">LIVE</span>
+              </div>
+
+              {/* Active Project Card */}
+              {primaryProject && (
+                <div className="p-4 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="eyebrow">PRIMARY CONTRACT</span>
+                    <span className="text-[10px] font-mono font-bold text-[#42B9A8]">ACTIVE</span>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-xs text-[#171A2B]">{primaryProject.name}</h4>
+                    <p className="text-[11px] text-[#777887]">{primaryProject.clientName}</p>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-[#E9E7E2] text-[11px] font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-[#777887]">Base Value:</span>
+                      <span className="font-bold text-[#171A2B]">{primaryProject.currency}{primaryProject.budget.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#777887]">Hourly Rate:</span>
+                      <span className="font-bold text-[#171A2B]">{primaryProject.currency}{primaryProject.hourlyRate}/hr</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#777887]">Revision Cap:</span>
+                      <span className="font-bold text-[#171A2B]">{primaryProject.revisionsUsed}/{primaryProject.revisionLimit || 2} used</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Boundary Radar Status */}
+              <div className="space-y-2">
+                <span className="eyebrow block">BOUNDARY INTEGRITY</span>
+                <div className="p-3.5 rounded-xl bg-[#FFFFFF] border border-[#E9E7E2] space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#777887] text-[11px]">Clause Grounding:</span>
+                    <span className="font-mono font-bold text-[#42B9A8]">100% Deterministic</span>
+                  </div>
+                  <div className="w-full bg-[#F8F7F4] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-[#42B9A8] h-full w-full" />
+                  </div>
+                  <p className="text-[10px] text-[#777887] leading-tight">
+                    Every analysis matches against explicit contractual deliverables and exclusions.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick AI Diagnostics */}
+              <div className="space-y-2">
+                <span className="eyebrow block">INFERENCE TELEMETRY</span>
+                <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] space-y-2 text-xs font-mono">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#777887]">Runtime:</span>
+                    <span className="text-[#171A2B]">{ollamaConfig.isConnected ? 'Local GPU/CPU' : 'Browser Heuristic'}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#777887]">Model:</span>
+                    <span className="text-[#7255E8] font-bold">{ollamaConfig.isConnected ? ollamaConfig.model : 'Deterministic'}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#777887]">Privacy Policy:</span>
+                    <span className="text-[#42B9A8] font-bold">100% Zero-Cloud</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Context Panel Footer */}
+            <div className="pt-4 border-t border-[#E9E7E2] text-center">
+              <span className="text-[10px] font-mono text-[#777887]">
+                ScopeShield AI System v2.5
+              </span>
+            </div>
+
+          </aside>
+        )}
+
       </div>
 
     </div>

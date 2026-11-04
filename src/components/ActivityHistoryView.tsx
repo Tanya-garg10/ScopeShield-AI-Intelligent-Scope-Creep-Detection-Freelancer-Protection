@@ -136,3 +136,4 @@ export const ActivityHistoryView: React.FC<ActivityHistoryViewProps> = ({
     </div>
   );
 };
+

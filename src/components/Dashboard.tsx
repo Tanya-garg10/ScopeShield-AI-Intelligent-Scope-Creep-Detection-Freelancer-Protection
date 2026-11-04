@@ -1,19 +1,22 @@
 import React from 'react';
 import { 
+  ArrowRight, 
   Plus, 
+  Radar, 
   FolderKanban, 
-  ScanSearch, 
-  CheckCircle2, 
-  FileSpreadsheet, 
-  ArrowUpRight, 
-  ArrowRight,
   Clock, 
+  CheckCircle2, 
+  AlertTriangle, 
   ShieldCheck, 
-  AlertCircle,
+  FileText, 
   Sparkles,
+  ArrowUpRight,
+  Layers,
+  HelpCircle,
   Inbox
 } from 'lucide-react';
 import { ProjectScope, ScopeAnalysis, ChangeProposal, ActivityLog } from '../types';
+import { ScopeMap } from './ScopeMap';
 
 interface DashboardProps {
   projects: ProjectScope[];
@@ -38,301 +41,280 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenProposals,
   onLoadDemoScenario
 }) => {
-  // Metrics calculation
-  const activeProjectsCount = projects.filter(p => (p.status || 'Active') === 'Active').length || projects.length;
+  const activeProject = projects[0];
+
+  // Boundary metrics
   const requestsReviewedCount = analyses.length;
-  
-  // Count in-scope vs change requests
-  let inScopeCount = 0;
+  let withinAgreementCount = 0;
+  let needsClarificationCount = 0;
+  let scopeChangeCount = 0;
+
   analyses.forEach(a => {
-    if (a.overallClassification === 'IN_SCOPE') {
-      inScopeCount += 1;
-    } else {
-      const inScopeItems = a.changes.filter(c => c.classification === 'IN_SCOPE' || c.classification === 'LIKELY_IN_SCOPE').length;
-      inScopeCount += inScopeItems;
-    }
+    if (a.overallClassification === 'IN_SCOPE') withinAgreementCount++;
+    else if (a.overallClassification === 'NEEDS_CLARIFICATION') needsClarificationCount++;
+    else scopeChangeCount++;
   });
 
-  const changeRequestsCount = proposals.length;
-
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-10 animate-in fade-in duration-300">
       
-      {/* 1. Welcome Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#ECEAF0]">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#17213A] tracking-tight">
-            Good morning, let's protect your work.
-          </h1>
-          <p className="text-sm text-[#85899A] mt-1 font-medium">
-            Your projects, boundaries and client requests — all in one place.
-          </p>
+      {/* 1. TOP EDITORIAL HERO SECTION */}
+      <section className="space-y-5 pb-6 border-b border-[#E9E7E2]">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#7255E8]" />
+          <span className="eyebrow text-[#171A2B]">YOUR FREELANCE COMMAND CENTER</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onLoadDemoScenario}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#ECEAF0] bg-white hover:bg-[#FAF9F6] text-[#17213A] transition-all shadow-xs"
-          >
-            Load Sample Scenario
-          </button>
-          <button
-            onClick={onOpenBuilder}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6946D8] hover:bg-[#5b3bc2] text-white text-xs font-semibold shadow-[0_2px_8px_rgba(105,70,216,0.25)] transition-all active:scale-[0.99]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create New Project</span>
-          </button>
-        </div>
-      </div>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div className="max-w-2xl space-y-3">
+            <h1 className="editorial-title text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#171A2B] tracking-tight">
+              Your work.<br />
+              <span className="text-[#7255E8]">Your boundaries.</span>
+            </h1>
+            <p className="text-sm sm:text-base text-[#777887] leading-relaxed max-w-xl font-normal">
+              One intelligent workspace to understand agreements, identify scope changes and protect the value of your work.
+            </p>
+          </div>
 
-      {/* 2. Four Compact Overview Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Metric 1: Active Projects */}
-        <div className="p-4 bg-white rounded-2xl border border-[#ECEAF0] shadow-[0_2px_10px_rgba(23,33,58,0.03)] hover:border-[#6946D8]/30 transition-all">
-          <div className="flex items-center justify-between text-[#85899A]">
-            <span className="text-xs font-medium">Active Projects</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FAF9F6] flex items-center justify-center text-[#17213A]">
-              <FolderKanban className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#17213A] tracking-tight">{activeProjectsCount}</span>
-            <span className="text-[11px] text-[#18A999] font-semibold">Tracked</span>
-          </div>
-        </div>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => onOpenDetector()}
+              className="px-4 py-2.5 rounded-xl border border-[#E9E7E2] bg-[#FFFFFF] hover:bg-[#F8F7F4] text-[#171A2B] text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
+            >
+              <Radar className="w-3.5 h-3.5 text-[#7255E8]" />
+              <span>Explore intelligence</span>
+            </button>
 
-        {/* Metric 2: Requests Reviewed */}
-        <div className="p-4 bg-white rounded-2xl border border-[#ECEAF0] shadow-[0_2px_10px_rgba(23,33,58,0.03)] hover:border-[#6946D8]/30 transition-all">
-          <div className="flex items-center justify-between text-[#85899A]">
-            <span className="text-xs font-medium">Requests Reviewed</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FAF9F6] flex items-center justify-center text-[#6946D8]">
-              <ScanSearch className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#17213A] tracking-tight">{requestsReviewedCount}</span>
-            <span className="text-[11px] text-[#85899A] font-medium">Messages</span>
-          </div>
-        </div>
-
-        {/* Metric 3: In-Scope Requests */}
-        <div className="p-4 bg-white rounded-2xl border border-[#ECEAF0] shadow-[0_2px_10px_rgba(23,33,58,0.03)] hover:border-[#6946D8]/30 transition-all">
-          <div className="flex items-center justify-between text-[#85899A]">
-            <span className="text-xs font-medium">In-Scope Requests</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FAF9F6] flex items-center justify-center text-[#18A999]">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#17213A] tracking-tight">{inScopeCount}</span>
-            <span className="text-[11px] text-[#18A999] font-semibold">Approved</span>
-          </div>
-        </div>
-
-        {/* Metric 4: Change Requests */}
-        <div className="p-4 bg-white rounded-2xl border border-[#ECEAF0] shadow-[0_2px_10px_rgba(23,33,58,0.03)] hover:border-[#6946D8]/30 transition-all">
-          <div className="flex items-center justify-between text-[#85899A]">
-            <span className="text-xs font-medium">Change Requests</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FAF9F6] flex items-center justify-center text-[#6946D8]">
-              <FileSpreadsheet className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#17213A] tracking-tight">{changeRequestsCount}</span>
-            <span className="text-[11px] text-[#6946D8] font-semibold">Proposals</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* 3. Empty State if no projects */}
-      {projects.length === 0 ? (
-        <div className="p-12 text-center bg-white border border-[#ECEAF0] rounded-2xl shadow-sm">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-[#F0EBFF] flex items-center justify-center text-[#6946D8] mb-4">
-            <Inbox className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-[#17213A]">No projects created yet</h3>
-          <p className="text-xs text-[#85899A] max-w-sm mx-auto mt-1 leading-relaxed">
-            Set up your first client project scope to lock in deliverables, exclusions, and revision boundaries.
-          </p>
-          <div className="mt-5 flex items-center justify-center gap-3">
             <button
               onClick={onOpenBuilder}
-              className="px-4 py-2 bg-[#6946D8] hover:bg-[#5b3bc2] text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#171A2B] hover:bg-[#7255E8] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.99]"
             >
-              + Create New Project
+              <span>Create a project</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Empty State if no projects */}
+      {projects.length === 0 ? (
+        <div className="p-16 text-center bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl shadow-xs">
+          <Inbox className="w-10 h-10 text-[#777887] mx-auto mb-3 opacity-50" />
+          <h3 className="font-display font-bold text-base text-[#171A2B]">No active projects in command center</h3>
+          <p className="text-xs text-[#777887] max-w-sm mx-auto mt-1 leading-relaxed">
+            Initialize your first client agreement to establish contractual boundaries, deliverables, and revision caps.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={onOpenBuilder}
+              className="px-4 py-2 bg-[#171A2B] hover:bg-[#7255E8] text-white text-xs font-bold rounded-xl"
+            >
+              Create a project →
             </button>
             <button
               onClick={onLoadDemoScenario}
-              className="px-4 py-2 border border-[#ECEAF0] bg-white hover:bg-[#FAF9F6] text-[#17213A] text-xs font-semibold rounded-xl transition-colors"
+              className="px-4 py-2 border border-[#E9E7E2] bg-[#FFFFFF] text-xs font-semibold rounded-xl"
             >
               Load Demo Template
             </button>
           </div>
         </div>
       ) : (
-        /* 4. Two-Column Layout Below Metrics */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        /* 2. SOPHISTICATED PROJECT INTELLIGENCE OVERVIEW (ASYMMETRIC COMPOSITION) */
+        <div className="space-y-8">
           
-          {/* LEFT: Recent Projects Table (8 cols on lg) */}
-          <div className="lg:col-span-8 bg-white border border-[#ECEAF0] rounded-2xl shadow-[0_2px_12px_rgba(23,33,58,0.03)] overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
             
-            <div className="p-4 sm:p-5 border-b border-[#ECEAF0] flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-[#17213A]">Recent Projects</h2>
-                <p className="text-[11px] text-[#85899A] mt-0.5">Active agreements, deliverables and contract scopes</p>
+            {/* LEFT — Active Workspace: Editorial Project Panel (7 cols) */}
+            <div className="lg:col-span-7 bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl p-6 sm:p-8 flex flex-col justify-between shadow-[0_2px_12px_rgba(23,26,43,0.02)]">
+              
+              <div className="space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E9E7E2]">
+                  <span className="eyebrow">ACTIVE WORKSPACE</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
+                    {activeProject.status || 'Active'}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="font-display font-bold text-2xl text-[#171A2B] tracking-tight">
+                    {activeProject.name}
+                  </h3>
+                  <p className="text-xs text-[#777887] mt-0.5">
+                    Client: <strong className="text-[#171A2B] font-semibold">{activeProject.clientName}</strong>
+                  </p>
+                </div>
+
+                {activeProject.description && (
+                  <p className="text-xs text-[#171A2B] leading-relaxed line-clamp-2">
+                    {activeProject.description}
+                  </p>
+                )}
+
+                {/* Scope Completeness & Milestones */}
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="p-3 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2]">
+                    <span className="text-[10px] font-mono text-[#777887] block">Deliverables</span>
+                    <span className="text-sm font-bold text-[#171A2B] font-mono mt-0.5 block">
+                      {activeProject.includedDeliverables.length} Locked
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2]">
+                    <span className="text-[10px] font-mono text-[#777887] block">Exclusions</span>
+                    <span className="text-sm font-bold text-[#171A2B] font-mono mt-0.5 block">
+                      {activeProject.excludedDeliverables.length} Clauses
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2]">
+                    <span className="text-[10px] font-mono text-[#777887] block">Revision Cap</span>
+                    <span className="text-sm font-bold text-[#171A2B] font-mono mt-0.5 block">
+                      {activeProject.revisionsUsed}/{activeProject.revisionLimit || 2} Used
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <button
-                onClick={() => onSelectProject(projects[0]?.id || '')}
-                className="text-xs font-semibold text-[#6946D8] hover:underline flex items-center gap-1"
-              >
-                <span>View all</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Bottom Project Actions */}
+              <div className="pt-6 border-t border-[#E9E7E2] mt-6 flex items-center justify-between">
+                <div className="text-[11px] text-[#777887] font-mono">
+                  Base: <strong className="text-[#171A2B]">{activeProject.currency}{activeProject.budget.toLocaleString()}</strong> • Rate: <strong className="text-[#171A2B]">{activeProject.currency}{activeProject.hourlyRate}/hr</strong>
+                </div>
+
+                <button
+                  onClick={() => onSelectProject(activeProject.id)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#F8F7F4] hover:bg-[#F0EDFF] text-[#171A2B] hover:text-[#7255E8] rounded-xl text-xs font-semibold border border-[#E9E7E2] transition-colors"
+                >
+                  <span>Open workspace</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-[#ECEAF0] bg-[#FAF9F6]/60 text-[11px] font-semibold text-[#85899A]">
-                    <th className="py-3 px-4 sm:px-5">Project Name</th>
-                    <th className="py-3 px-3">Client</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3">Last Updated</th>
-                    <th className="py-3 px-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#ECEAF0]">
-                  {projects.slice(0, 5).map((project) => {
-                    const status = project.status || 'Active';
-                    const lastUpdated = project.updatedAt 
-                      ? new Date(project.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                      : 'Recently';
+            {/* RIGHT — Boundary Intelligence: Status Visualization (5 cols) */}
+            <div className="lg:col-span-5 bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl p-6 sm:p-8 flex flex-col justify-between shadow-[0_2px_12px_rgba(23,26,43,0.02)]">
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E9E7E2]">
+                  <span className="eyebrow">BOUNDARY INTELLIGENCE</span>
+                  <span className="text-[10px] font-mono text-[#777887]">REAL-TIME AUDIT</span>
+                </div>
 
-                    return (
-                      <tr 
-                        key={project.id}
-                        className="hover:bg-[#FAF9F6]/80 transition-colors group cursor-pointer"
-                        onClick={() => onSelectProject(project.id)}
-                      >
-                        <td className="py-3.5 px-4 sm:px-5 font-medium text-[#17213A]">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-[#F0EBFF] text-[#6946D8] flex items-center justify-center font-bold text-[10px]">
-                              {project.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-xs text-[#17213A] group-hover:text-[#6946D8] transition-colors">{project.name}</p>
-                              <p className="text-[10px] text-[#85899A]">{project.includedDeliverables.length} deliverables • {project.revisionLimit || 2} rev cap</p>
-                            </div>
-                          </div>
-                        </td>
+                {/* Subtle Circular Status Radar / Numerical Typography */}
+                <div className="grid grid-cols-2 gap-4 py-2">
+                  
+                  {/* Metric: Requests Analyzed */}
+                  <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] relative overflow-hidden">
+                    <span className="text-[10px] font-mono text-[#777887] uppercase block">Requests Analyzed</span>
+                    <span className="text-3xl font-display font-extrabold text-[#171A2B] tracking-tight mt-1 block">
+                      {requestsReviewedCount}
+                    </span>
+                    <span className="text-[10px] text-[#777887]">Client Inquiries</span>
+                  </div>
 
-                        <td className="py-3.5 px-3 text-[#17213A] font-medium">
-                          {project.clientName || 'Direct Client'}
-                        </td>
+                  {/* Metric: Within Agreement */}
+                  <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] relative overflow-hidden">
+                    <span className="text-[10px] font-mono text-[#42B9A8] uppercase block">Within Agreement</span>
+                    <span className="text-3xl font-display font-extrabold text-[#42B9A8] tracking-tight mt-1 block">
+                      {withinAgreementCount}
+                    </span>
+                    <span className="text-[10px] text-[#42B9A8]">In Scope (0 Billable)</span>
+                  </div>
 
-                        <td className="py-3.5 px-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                            status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${status === 'Active' ? 'bg-[#18A999]' : 'bg-slate-400'}`} />
-                            {status}
-                          </span>
-                        </td>
+                  {/* Metric: Need Clarification */}
+                  <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] relative overflow-hidden">
+                    <span className="text-[10px] font-mono text-amber-700 uppercase block">Need Clarification</span>
+                    <span className="text-3xl font-display font-extrabold text-amber-600 tracking-tight mt-1 block">
+                      {needsClarificationCount}
+                    </span>
+                    <span className="text-[10px] text-amber-700">Threshold Queries</span>
+                  </div>
 
-                        <td className="py-3.5 px-3 text-[#85899A] text-[11px]">
-                          {lastUpdated}
-                        </td>
+                  {/* Metric: Potential Scope Changes */}
+                  <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] relative overflow-hidden">
+                    <span className="text-[10px] font-mono text-[#7255E8] uppercase block">Scope Additions</span>
+                    <span className="text-3xl font-display font-extrabold text-[#7255E8] tracking-tight mt-1 block">
+                      {scopeChangeCount}
+                    </span>
+                    <span className="text-[10px] text-[#7255E8]">Change Orders Generated</span>
+                  </div>
 
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectProject(project.id);
-                            }}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#6946D8] hover:text-[#5b3bc2] py-1 px-2.5 rounded-lg hover:bg-[#F0EBFF] transition-colors"
-                          >
-                            <span>Open</span>
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#F0EDFF]/60 border border-[#7255E8]/20 flex items-start gap-2.5 text-xs text-[#171A2B]">
+                  <Sparkles className="w-4 h-4 text-[#7255E8] shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed">
+                    <strong>Zero-hallucination boundary protection:</strong> Every request is parsed against contract scope clauses before client replies are drafted.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[#E9E7E2]">
+                <button
+                  onClick={() => onOpenDetector(activeProject.id)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#171A2B] hover:bg-[#7255E8] text-white text-xs font-semibold transition-colors"
+                >
+                  <Radar className="w-3.5 h-3.5" />
+                  <span>Analyze incoming client message</span>
+                </button>
+              </div>
+
             </div>
 
           </div>
 
-          {/* RIGHT: Recent Activity Timeline (4 cols on lg) */}
-          <div className="lg:col-span-4 bg-white border border-[#ECEAF0] rounded-2xl shadow-[0_2px_12px_rgba(23,33,58,0.03)] p-4 sm:p-5">
-            
-            <div className="flex items-center justify-between pb-3 border-b border-[#ECEAF0] mb-4">
+          {/* SIGNATURE SCOPE MAP EMBED (Topological Boundary Visualization) */}
+          <div className="space-y-2">
+            <ScopeMap project={activeProject} analysis={analyses[0] || null} />
+          </div>
+
+          {/* RECENT ACTIVITY STREAM WITH TIMELINE */}
+          <section className="bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl p-6 sm:p-8 shadow-[0_2px_12px_rgba(23,26,43,0.02)] space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E9E7E2]">
               <div>
-                <h2 className="text-sm font-bold text-[#17213A]">Recent Activity</h2>
-                <p className="text-[11px] text-[#85899A] mt-0.5">Automated scope audit trail</p>
+                <span className="eyebrow">CHRONOLOGICAL AUDIT TRAIL</span>
+                <h3 className="font-display font-bold text-base text-[#171A2B] mt-0.5">Recent Activity</h3>
               </div>
 
-              <span className="text-[10px] font-semibold text-[#85899A] uppercase tracking-wider">Live</span>
+              <span className="text-[10px] font-mono text-[#777887]">Live Stream</span>
             </div>
 
-            <div className="relative pl-4 space-y-5 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#ECEAF0]">
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E9E7E2]">
               {activities.slice(0, 5).map((act) => {
-                const timeString = act.timestamp 
-                  ? new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : 'Just now';
-
-                let dotColor = 'bg-[#6946D8]';
-                if (act.badgeColor === 'emerald') dotColor = 'bg-[#18A999]';
-                if (act.badgeColor === 'amber') dotColor = 'bg-amber-400';
-                if (act.badgeColor === 'violet') dotColor = 'bg-[#6946D8]';
+                const dateObj = new Date(act.timestamp);
+                const timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const dateString = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
                 return (
                   <div key={act.id} className="relative group">
-                    {/* Timeline bullet dot */}
-                    <div className={`absolute -left-4 top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${dotColor} shadow-xs`} />
-                    
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#17213A]">{act.title}</span>
-                        <span className="text-[10px] text-[#85899A]">{timeString}</span>
-                      </div>
+                    {/* Bullet marker */}
+                    <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-[#171A2B] group-hover:bg-[#7255E8] transition-colors" />
 
-                      <p className="text-[11px] text-[#85899A] mt-1 leading-relaxed">
-                        {act.description}
-                      </p>
-
-                      {act.badge && (
-                        <div className="mt-1.5">
-                          <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[#FAF9F6] border border-[#ECEAF0] font-medium text-[#17213A]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-[#171A2B]">{act.title}</span>
+                        {act.badge && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#F8F7F4] border border-[#E9E7E2] text-[#171A2B]">
                             {act.badge}
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
+                      <span className="text-[10px] font-mono text-[#777887]">
+                        {dateString} • {timeString}
+                      </span>
                     </div>
+
+                    <p className="text-xs text-[#777887] mt-0.5 leading-relaxed">
+                      {act.description}
+                    </p>
                   </div>
                 );
               })}
             </div>
-
-            {/* Quick Action in Card Footer */}
-            <div className="mt-6 pt-3 border-t border-[#ECEAF0]">
-              <button
-                onClick={() => onOpenDetector(projects[0]?.id)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-[#6946D8] bg-[#F0EBFF] hover:bg-[#e4dbff] rounded-xl transition-colors"
-              >
-                <ScanSearch className="w-3.5 h-3.5" />
-                <span>Test New Client Message</span>
-              </button>
-            </div>
-
-          </div>
+          </section>
 
         </div>
       )}

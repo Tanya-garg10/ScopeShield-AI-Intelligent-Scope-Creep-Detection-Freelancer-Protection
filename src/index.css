@@ -2,32 +2,64 @@
 
 @layer base {
   :root {
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
-    --bg-page: #FAF9F6;
+    
+    --bg-page: #F8F7F4;
     --card-bg: #FFFFFF;
-    --text-primary: #17213A;
-    --text-muted: #85899A;
-    --border-color: #ECEAF0;
-    --primary-violet: #6946D8;
-    --soft-lavender: #F0EBFF;
-    --accent-teal: #18A999;
+    --text-primary: #171A2B;
+    --text-secondary: #777887;
+    --electric-violet: #7255E8;
+    --deep-violet: #4933A8;
+    --soft-lavender: #F0EDFF;
+    --teal: #42B9A8;
+    --fine-border: #E9E7E2;
   }
   
   body {
     font-family: var(--font-sans);
-    background-color: #FAF9F6;
-    color: #17213A;
+    background-color: #F8F7F4;
+    color: #171A2B;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    selection-background-color: #F0EDFF;
+    selection-color: #4933A8;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
   }
 }
 
-/* Custom subtle scrollbars */
+/* Swiss typography & precision accents */
+.editorial-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #777887;
+}
+
+.subtle-grid {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(233, 231, 226, 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(233, 231, 226, 0.4) 1px, transparent 1px);
+}
+
+/* Precision scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -35,12 +67,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ECEAF0;
-  border-radius: 9999px;
+  background: #E9E7E2;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #CBD5E1;
+  background: #777887;
 }
 
 /* Print styling for PDF proposal download */

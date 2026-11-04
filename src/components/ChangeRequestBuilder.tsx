@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  FileSpreadsheet, 
+  FileText, 
   Plus, 
   Copy, 
   Download, 
@@ -12,10 +12,10 @@ import {
   Clock, 
   DollarSign, 
   Calendar, 
-  FileText,
-  ChevronRight,
+  Save, 
+  ArrowRight,
   ExternalLink,
-  Save
+  ChevronRight
 } from 'lucide-react';
 import { ProjectScope, ChangeProposal } from '../types';
 import { useToast } from './Toast';
@@ -41,7 +41,6 @@ export const ChangeRequestBuilder: React.FC<ChangeRequestBuilderProps> = ({
   const [selectedProposalId, setSelectedProposalId] = useState<string>(
     initialProposalDraft?.id || proposals[0]?.id || ''
   );
-  const [isEditing, setIsEditing] = useState<boolean>(!!initialProposalDraft);
 
   // Editor form state
   const [projectId, setProjectId] = useState<string>(
@@ -82,7 +81,6 @@ export const ChangeRequestBuilder: React.FC<ChangeRequestBuilderProps> = ({
     initialProposalDraft?.status || 'Draft'
   );
 
-  // Selected Proposal for Preview
   const selectedProposal = proposals.find(p => p.id === selectedProposalId) || proposals[0];
 
   const handleSelectProposal = (prop: ChangeProposal) => {
@@ -98,7 +96,6 @@ export const ChangeRequestBuilder: React.FC<ChangeRequestBuilderProps> = ({
     setAdditionalCost(prop.additionalCost);
     setRevisedDeadline(prop.revisedDeadline || '');
     setStatus(prop.status);
-    setIsEditing(false);
     setIsCreatingNew(false);
   };
 
@@ -115,12 +112,11 @@ export const ChangeRequestBuilder: React.FC<ChangeRequestBuilderProps> = ({
     setRevisedDeadline('');
     setStatus('Draft');
     setIsCreatingNew(true);
-    setIsEditing(true);
   };
 
   const handleSave = () => {
     if (!title.trim() || !additionalWork.trim()) {
-      toast.error('Required fields missing', 'Please enter a proposal title and describe the additional work.');
+      toast.error('Required fields missing', 'Please enter a proposal title and additional work description.');
       return;
     }
 
@@ -145,489 +141,415 @@ export const ChangeRequestBuilder: React.FC<ChangeRequestBuilderProps> = ({
 
     onSaveProposal(proposalToSave);
     setSelectedProposalId(proposalToSave.id);
-    setIsEditing(false);
     setIsCreatingNew(false);
-    toast.success('Proposal Saved', `Change Request ${proposalToSave.id} has been recorded.`);
+    toast.success('Proposal Saved', `Change Request ${proposalToSave.id} has been saved.`);
   };
 
-  // Copy Proposal as Formatted Text
   const handleCopyProposal = () => {
-    const p = isEditing ? {
-      id: proposalId,
-      projectName: activeProject?.name || 'Project',
-      clientName: activeProject?.clientName || 'Client',
-      title,
-      originalReference,
-      additionalWork,
-      reasonForChange,
-      estimatedHours,
-      hourlyRate,
-      additionalCost,
-      currency: activeProject?.currency || '₹',
-      revisedDeadline,
-      status
-    } : selectedProposal;
-
-    if (!p) return;
-
     const copyText = `
-CHANGE REQUEST ADDENDUM (${p.id})
+CHANGE REQUEST ADDENDUM (${proposalId})
 ========================================
-Project: ${p.projectName}
-Client: ${p.clientName}
+Project: ${activeProject?.name || 'Project'}
+Client: ${activeProject?.clientName || 'Client'}
 Date: ${new Date().toLocaleDateString()}
-Status: ${p.status}
+Status: ${status}
 
 1. ORIGINAL REFERENCE:
-${p.originalReference}
+${originalReference}
 
 2. ADDITIONAL WORK SPECIFICATION:
-${p.additionalWork}
+${additionalWork}
 
 3. REASON FOR CHANGE:
-${p.reasonForChange}
+${reasonForChange}
 
 4. FINANCIAL & RESOURCE ESTIMATE:
-- Additional Hours: ${p.estimatedHours} hrs
-- Agreed Rate: ${p.currency}${p.hourlyRate}/hr
-- Total Additional Fee: ${p.currency}${p.additionalCost.toLocaleString()}
+- Additional Hours: ${estimatedHours} hrs
+- Agreed Rate: ${activeProject?.currency || '₹'}${hourlyRate}/hr
+- Total Additional Fee: ${activeProject?.currency || '₹'}${additionalCost.toLocaleString()}
 
 5. TIMELINE IMPACT:
-${p.revisedDeadline ? `Revised Target Date: ${p.revisedDeadline}` : 'No deadline adjustment requested.'}
+${revisedDeadline ? `Revised Target Date: ${revisedDeadline}` : 'No deadline adjustment requested.'}
 
 ========================================
 ScopeShield AI • Freelancer Scope Protection
 `;
 
     navigator.clipboard.writeText(copyText.trim());
-    toast.success('Proposal Copied to Clipboard', 'Ready to paste into an email or client document.');
+    toast.success('Proposal Copied', 'Ready to paste into an email or client document.');
   };
 
-  // Download PDF / Print
   const handlePrintPdf = () => {
     window.print();
-    toast.info('Opening Print Dialog', 'Select "Save as PDF" to export the document.');
+    toast.info('Opening Print Dialog', 'Select "Save as PDF" to export the formatted document.');
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-8 animate-in fade-in duration-200">
       
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#ECEAF0]">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-[#E9E7E2]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#17213A] tracking-tight">Change Requests</h1>
-          <p className="text-xs text-[#85899A] mt-0.5">
-            Polished, document-grade proposals and addendums for out-of-scope client work.
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-[#7255E8]" />
+            <span className="eyebrow text-[#171A2B]">CHANGE REQUEST STUDIO</span>
+          </div>
+          <h1 className="editorial-title text-3xl sm:text-4xl font-extrabold text-[#171A2B] tracking-tight">
+            Document Design Studio.
+          </h1>
+          <p className="text-xs sm:text-sm text-[#777887] mt-1 font-normal">
+            Generate formal, verifiable scope change orders and price addendums.
           </p>
         </div>
 
-        <button
-          onClick={handleStartNewProposal}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#6946D8] hover:bg-[#5b3bc2] text-white text-xs font-semibold shadow-xs transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Proposal</span>
-        </button>
+        <div className="flex items-center gap-2 no-print">
+          <button
+            onClick={handleStartNewProposal}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#171A2B] hover:bg-[#7255E8] text-white text-xs font-semibold shadow-xs transition-all"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Addendum</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Existing Proposals Selector Rail (Quick horizontal pills) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 no-print">
+        <span className="eyebrow shrink-0 mr-1">EXISTING ADDENDUMS:</span>
+        {proposals.map(p => (
+          <button
+            key={p.id}
+            onClick={() => handleSelectProposal(p)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono shrink-0 transition-all ${
+              selectedProposalId === p.id && !isCreatingNew
+                ? 'bg-white border-[#7255E8] text-[#7255E8] font-bold shadow-xs'
+                : 'bg-white border-[#E9E7E2] text-[#777887] hover:text-[#171A2B]'
+            }`}
+          >
+            {p.id} • {p.projectName.slice(0, 16)}..
+          </button>
+        ))}
+      </div>
+
+      {/* TWO-COLUMN INTERFACE */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* LEFT COLUMN: List of Proposals (4 cols) */}
-        <div className="lg:col-span-4 space-y-3 no-print">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider">
-              Change Proposals ({proposals.length})
+        {/* ================= LEFT: EDITABLE PROPOSAL INFORMATION (5 cols) ================= */}
+        <div className="lg:col-span-5 bg-white border border-[#E9E7E2] rounded-2xl p-6 shadow-[0_2px_12px_rgba(23,26,43,0.02)] space-y-4 no-print">
+          
+          <div className="flex items-center justify-between pb-3 border-b border-[#E9E7E2]">
+            <span className="eyebrow">EDITABLE SPECIFICATION</span>
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#171A2B] hover:bg-[#7255E8] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Save Addendum</span>
+            </button>
+          </div>
+
+          <div className="space-y-3.5 text-xs">
+            
+            {/* Project Selection */}
+            <div>
+              <label className="block font-semibold text-[#171A2B] mb-1">Project Agreement</label>
+              <select
+                value={projectId}
+                onChange={(e) => {
+                  setProjectId(e.target.value);
+                  const p = projects.find(proj => proj.id === e.target.value);
+                  if (p) {
+                    setHourlyRate(p.hourlyRate);
+                    setAdditionalCost(estimatedHours * p.hourlyRate);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.clientName})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Proposal ID & Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-[#171A2B] mb-1">Proposal ID</label>
+                <input
+                  type="text"
+                  value={proposalId}
+                  onChange={(e) => setProposalId(e.target.value)}
+                  className="w-full px-3 py-2 font-mono text-xs bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#171A2B] mb-1">Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Sent">Sent to Client</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Declined">Declined</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="block font-semibold text-[#171A2B] mb-1">Subject / Title</label>
+              <input
+                type="text"
+                placeholder="e.g. Payment Gateway Integration & Extra Landing Pages"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-3 py-2 bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+              />
+            </div>
+
+            {/* Original Project Reference */}
+            <div>
+              <label className="block font-semibold text-[#171A2B] mb-1">Original Agreement Reference</label>
+              <input
+                type="text"
+                placeholder="e.g. Section 2: Excluded Work (Payment Gateway) & 5-Page Cap"
+                value={originalReference}
+                onChange={(e) => setOriginalReference(e.target.value)}
+                className="w-full px-3 py-2 bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+              />
+            </div>
+
+            {/* Additional Deliverables */}
+            <div>
+              <label className="block font-semibold text-[#171A2B] mb-1">Additional Requested Deliverables</label>
+              <textarea
+                rows={3}
+                placeholder="List the exact new deliverables requested by the client..."
+                value={additionalWork}
+                onChange={(e) => setAdditionalWork(e.target.value)}
+                className="w-full p-3 bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8] resize-none"
+              />
+            </div>
+
+            {/* Reason for Change */}
+            <div>
+              <label className="block font-semibold text-[#171A2B] mb-1">Reason for Change Order</label>
+              <textarea
+                rows={2}
+                placeholder="Why this constitutes additional work outside original baseline..."
+                value={reasonForChange}
+                onChange={(e) => setReasonForChange(e.target.value)}
+                className="w-full p-3 bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8] resize-none"
+              />
+            </div>
+
+            {/* User Input: Hours & Additional Price */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-[#171A2B] mb-1">Estimated Hours</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={estimatedHours}
+                  onChange={(e) => {
+                    const hrs = Number(e.target.value);
+                    setEstimatedHours(hrs);
+                    setAdditionalCost(hrs * hourlyRate);
+                  }}
+                  className="w-full px-3 py-2 font-mono text-xs bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#171A2B] mb-1">
+                  Additional Price ({activeProject?.currency || '₹'})
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={additionalCost}
+                  onChange={(e) => setAdditionalCost(Number(e.target.value))}
+                  className="w-full px-3 py-2 font-mono font-bold text-xs bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+                />
+              </div>
+            </div>
+
+            {/* Revised Deadline */}
+            <div>
+              <label className="block font-semibold text-[#171A2B] mb-1">
+                Revised Deadline <span className="text-[#777887] font-normal">(optional)</span>
+              </label>
+              <input
+                type="date"
+                value={revisedDeadline}
+                onChange={(e) => setRevisedDeadline(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8]"
+              />
+            </div>
+
+          </div>
+
+          <div className="pt-3 border-t border-[#E9E7E2] flex items-center justify-between">
+            <button
+              onClick={handleCopyProposal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E9E7E2] bg-white hover:bg-[#F8F7F4] text-xs font-semibold text-[#171A2B]"
+            >
+              <Copy className="w-3.5 h-3.5 text-[#777887]" />
+              <span>Copy Text</span>
+            </button>
+
+            <button
+              onClick={handlePrintPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E9E7E2] bg-white hover:bg-[#F8F7F4] text-xs font-semibold text-[#171A2B]"
+            >
+              <Download className="w-3.5 h-3.5 text-[#777887]" />
+              <span>Export PDF</span>
+            </button>
+          </div>
+
+        </div>
+
+        {/* ================= RIGHT: LIVE PROPOSAL PREVIEW (7 cols) ================= */}
+        <div className="lg:col-span-7 bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl p-8 sm:p-10 shadow-[0_4px_24px_rgba(23,26,43,0.03)] space-y-8 print:p-0 print:border-none print:shadow-none">
+          
+          {/* Header of Business Document */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-[#171A2B]">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-[#171A2B] text-white flex items-center justify-center font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4 text-[#42B9A8]" />
+                </div>
+                <span className="font-display font-bold text-xs tracking-tight text-[#171A2B]">ScopeShield Verified Addendum</span>
+              </div>
+              <h2 className="editorial-title text-2xl font-bold text-[#171A2B] mt-3">CHANGE ORDER ADDENDUM</h2>
+              <p className="text-[11px] text-[#777887] font-mono mt-0.5">CONTRACT MODIFICATION DOCUMENT</p>
+            </div>
+
+            <div className="text-left sm:text-right text-xs font-mono space-y-1">
+              <span className="inline-block px-2 py-0.5 rounded bg-[#F8F7F4] border border-[#E9E7E2] font-bold text-[#171A2B]">
+                {proposalId}
+              </span>
+              <p className="text-[10px] text-[#777887]">
+                Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+              </p>
+              <div>
+                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                  status === 'Approved' ? 'bg-emerald-50 text-emerald-800' :
+                  status === 'Sent' ? 'bg-blue-50 text-blue-800' :
+                  'bg-slate-100 text-slate-800'
+                }`}>
+                  Status: {status}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Reference Block */}
+          <div className="grid grid-cols-2 gap-6 text-xs font-mono">
+            <div>
+              <span className="eyebrow block mb-1">PARTY A — CONTRACTOR</span>
+              <p className="font-bold text-[#171A2B]">Tanya Garg</p>
+              <p className="text-[#777887] text-[11px]">Independent Software Consultant</p>
+            </div>
+
+            <div>
+              <span className="eyebrow block mb-1">PARTY B — CLIENT</span>
+              <p className="font-bold text-[#171A2B]">{activeProject?.clientName || 'Client'}</p>
+              <p className="text-[#777887] text-[11px]">Project: {activeProject?.name}</p>
+            </div>
+          </div>
+
+          {/* Scope Subject & Reference */}
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2]">
+              <span className="eyebrow block mb-1">1. ORIGINAL MASTER AGREEMENT REFERENCE</span>
+              <p className="font-mono text-[#171A2B] text-[11px] leading-relaxed">
+                {originalReference || 'Master Services Agreement & Baseline Contract Deliverables'}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="eyebrow block">2. SPECIFICATION OF REQUESTED MODIFICATIONS</span>
+              <p className="font-bold text-[#171A2B] text-sm">{title}</p>
+              <div className="p-4 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] text-[#171A2B] leading-relaxed whitespace-pre-line text-xs font-sans">
+                {additionalWork || 'No specific deliverables entered.'}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="eyebrow block">3. REASON & CONTRACTUAL GROUNDING</span>
+              <p className="text-[#777887] text-xs leading-relaxed">
+                {reasonForChange || 'Requested functionality expands beyond the baseline scope.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Resource & Cost Breakdown Table */}
+          <div className="space-y-2">
+            <span className="eyebrow block">4. FINANCIAL & RESOURCE ALLOCATION</span>
+            
+            <table className="w-full text-xs text-left border-collapse font-mono">
+              <thead>
+                <tr className="border-b border-[#171A2B] text-[10px] text-[#777887]">
+                  <th className="py-2">Item Description</th>
+                  <th className="py-2 text-center">Allocated Hours</th>
+                  <th className="py-2 text-right">Agreed Rate</th>
+                  <th className="py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E9E7E2]">
+                <tr>
+                  <td className="py-3 font-sans font-semibold text-[#171A2B]">
+                    {title}
+                  </td>
+                  <td className="py-3 text-center text-[#171A2B]">
+                    {estimatedHours} hrs
+                  </td>
+                  <td className="py-3 text-right text-[#777887]">
+                    {activeProject?.currency || '₹'}{hourlyRate}/hr
+                  </td>
+                  <td className="py-3 text-right font-bold text-[#171A2B]">
+                    {activeProject?.currency || '₹'}{additionalCost.toLocaleString()}
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-[#171A2B] font-bold text-xs text-[#171A2B]">
+                  <td colSpan={3} className="py-3 text-right font-sans">Total Additional Investment:</td>
+                  <td className="py-3 text-right text-sm text-[#7255E8]">
+                    {activeProject?.currency || '₹'}{additionalCost.toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Timeline Impact */}
+          <div className="p-3.5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] flex items-center justify-between text-xs font-mono">
+            <span className="text-[#777887]">5. DELIVERY MILESTONE SCHEDULE:</span>
+            <span className="font-bold text-[#171A2B]">
+              {revisedDeadline ? `Revised Target: ${revisedDeadline}` : 'No deadline adjustment requested'}
             </span>
           </div>
 
-          <div className="space-y-2">
-            {proposals.map((prop) => {
-              const isSelected = !isCreatingNew && selectedProposalId === prop.id;
-              return (
-                <div
-                  key={prop.id}
-                  onClick={() => handleSelectProposal(prop)}
-                  className={`p-3.5 rounded-2xl border text-xs cursor-pointer transition-all ${
-                    isSelected
-                      ? 'bg-white border-[#6946D8] shadow-xs'
-                      : 'bg-white border-[#ECEAF0] hover:border-[#6946D8]/30'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#17213A] text-xs font-mono">{prop.id}</span>
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                      prop.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' :
-                      prop.status === 'Sent' ? 'bg-blue-50 text-blue-700' :
-                      prop.status === 'Declined' ? 'bg-rose-50 text-rose-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
-                      {prop.status}
-                    </span>
-                  </div>
-
-                  <p className="font-semibold text-[#17213A] mt-1 line-clamp-1">{prop.title}</p>
-                  <p className="text-[11px] text-[#85899A] line-clamp-1">{prop.projectName}</p>
-
-                  <div className="mt-2.5 pt-2 border-t border-[#ECEAF0] flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-[#17213A]">
-                      {prop.currency}{prop.additionalCost.toLocaleString()}
-                    </span>
-                    <span className="text-[#85899A]">{prop.estimatedHours} hrs</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: Document-Like Proposal Editor & Preview (8 cols) */}
-        <div className="lg:col-span-8 space-y-4">
-          
-          {/* Actions toolbar */}
-          <div className="flex items-center justify-between bg-white border border-[#ECEAF0] rounded-2xl p-3 shadow-xs no-print">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                  isEditing
-                    ? 'bg-[#F0EBFF] text-[#6946D8] border-[#6946D8]/30'
-                    : 'bg-white text-[#17213A] border-[#ECEAF0] hover:bg-[#FAF9F6]'
-                }`}
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>{isEditing ? 'View Preview' : 'Edit Proposal'}</span>
-              </button>
-
-              <button
-                onClick={handleCopyProposal}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#ECEAF0] bg-white hover:bg-[#FAF9F6] text-[#17213A] transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5 text-[#85899A]" />
-                <span>Copy Proposal</span>
-              </button>
-
-              <button
-                onClick={handlePrintPdf}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#ECEAF0] bg-white hover:bg-[#FAF9F6] text-[#17213A] transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-[#85899A]" />
-                <span>Download PDF</span>
-              </button>
+          {/* Signatures */}
+          <div className="pt-6 border-t border-[#E9E7E2] grid grid-cols-2 gap-8 text-[11px] text-[#777887] font-mono">
+            <div>
+              <p className="font-bold text-[#171A2B]">Contractor Authorization:</p>
+              <div className="h-10 border-b border-[#E9E7E2] mt-2" />
+              <p className="mt-1">Tanya Garg (Consultant)</p>
             </div>
 
-            {selectedProposal && !isCreatingNew && (
-              <button
-                onClick={() => {
-                  onDeleteProposal(selectedProposal.id);
-                  toast.info('Proposal Deleted', `Removed ${selectedProposal.id}`);
-                }}
-                className="p-1.5 text-[#85899A] hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors"
-                title="Delete Proposal"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* EDIT MODE FORM */}
-          {isEditing ? (
-            <div className="bg-white border border-[#ECEAF0] rounded-2xl p-6 shadow-xs space-y-4 animate-in fade-in no-print">
-              <div className="flex items-center justify-between pb-3 border-b border-[#ECEAF0]">
-                <div>
-                  <h3 className="text-sm font-bold text-[#17213A]">
-                    {isCreatingNew ? 'Create Change Request' : `Edit ${proposalId}`}
-                  </h3>
-                  <p className="text-[11px] text-[#85899A]">Define scope additions with verifiable numbers.</p>
-                </div>
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-[#6946D8] hover:bg-[#5b3bc2] text-white text-xs font-bold rounded-xl shadow-xs"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Proposal</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="block font-semibold text-[#17213A] mb-1">Select Project</label>
-                  <select
-                    value={projectId}
-                    onChange={(e) => {
-                      setProjectId(e.target.value);
-                      const p = projects.find(proj => proj.id === e.target.value);
-                      if (p) setHourlyRate(p.hourlyRate);
-                    }}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  >
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.clientName})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#17213A] mb-1">Proposal ID</label>
-                  <input
-                    type="text"
-                    value={proposalId}
-                    onChange={(e) => setProposalId(e.target.value)}
-                    className="w-full px-3 py-2 font-mono bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-semibold text-[#17213A] mb-1">Title</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Payment Gateway Integration & Extra Landing Pages"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-semibold text-[#17213A] mb-1">Original Project Reference</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Contract Section 2: Excluded Work & Deliverable Limits"
-                    value={originalReference}
-                    onChange={(e) => setOriginalReference(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-semibold text-[#17213A] mb-1">Additional Requested Work</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Describe specific items requested by client (e.g. Razorpay payment integration, 3 extra pages)..."
-                    value={additionalWork}
-                    onChange={(e) => setAdditionalWork(e.target.value)}
-                    className="w-full p-3 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8] resize-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-semibold text-[#17213A] mb-1">Reason for Change</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Why this constitutes additional work (e.g. Client requested direct checkout functionality)..."
-                    value={reasonForChange}
-                    onChange={(e) => setReasonForChange(e.target.value)}
-                    className="w-full p-3 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8] resize-none"
-                  />
-                </div>
-
-                {/* User Input: Hours, Rate, Cost */}
-                <div>
-                  <label className="block font-semibold text-[#17213A] mb-1">Estimated Additional Hours</label>
-                  <input
-                    type="number"
-                    value={estimatedHours}
-                    onChange={(e) => {
-                      const hrs = Number(e.target.value);
-                      setEstimatedHours(hrs);
-                      setAdditionalCost(hrs * hourlyRate);
-                    }}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#17213A] mb-1">
-                    Additional Cost ({activeProject?.currency || '₹'})
-                  </label>
-                  <input
-                    type="number"
-                    value={additionalCost}
-                    onChange={(e) => setAdditionalCost(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] font-bold text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#17213A] mb-1">
-                    Revised Deadline <span className="text-[#85899A] font-normal">(optional)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={revisedDeadline}
-                    onChange={(e) => setRevisedDeadline(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#17213A] mb-1">Approval Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#ECEAF0] rounded-xl text-[#17213A] focus:outline-none focus:border-[#6946D8]"
-                  >
-                    <option value="Draft">Draft</option>
-                    <option value="Sent">Sent to Client</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Declined">Declined</option>
-                  </select>
-                </div>
-              </div>
+            <div>
+              <p className="font-bold text-[#171A2B]">Client Signoff / Acceptance:</p>
+              <div className="h-10 border-b border-[#E9E7E2] mt-2" />
+              <p className="mt-1">{activeProject?.clientName || 'Authorized Signatory'}</p>
             </div>
-          ) : null}
-
-          {/* DOCUMENT PREVIEW CARD (Clean Stripe / Linear Style Addendum) */}
-          <div className="bg-white border border-[#ECEAF0] rounded-2xl p-8 sm:p-10 shadow-[0_4px_20px_rgba(23,33,58,0.04)] space-y-8 print:p-0 print:border-none print:shadow-none">
-            
-            {/* Document Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-[#ECEAF0]">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#6946D8] text-white flex items-center justify-center font-bold text-xs">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <span className="font-bold text-sm tracking-tight text-[#17213A]">ScopeShield AI</span>
-                </div>
-                <h2 className="text-xl font-bold text-[#17213A] mt-3">Change Request Order</h2>
-                <p className="text-xs text-[#85899A] mt-0.5">Formal Scope & Fee Addendum</p>
-              </div>
-
-              <div className="text-left sm:text-right text-xs space-y-1">
-                <div className="inline-block px-2.5 py-1 rounded-md bg-[#FAF9F6] border border-[#ECEAF0] font-mono text-[11px] font-bold text-[#17213A]">
-                  ID: {selectedProposal?.id || proposalId}
-                </div>
-                <p className="text-[11px] text-[#85899A]">
-                  Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                </p>
-                <div>
-                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
-                    (selectedProposal?.status || status) === 'Approved' ? 'bg-emerald-50 text-emerald-700' :
-                    (selectedProposal?.status || status) === 'Sent' ? 'bg-blue-50 text-blue-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>
-                    Status: {selectedProposal?.status || status}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Project & Client reference block */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-[#FAF9F6] border border-[#ECEAF0]">
-                <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider block">Project Reference</span>
-                <p className="font-bold text-[#17213A] mt-1">{selectedProposal?.projectName || activeProject?.name}</p>
-                <p className="text-[11px] text-[#85899A] mt-0.5">
-                  Ref: {selectedProposal?.originalReference || originalReference}
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#FAF9F6] border border-[#ECEAF0]">
-                <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider block">Client / Party</span>
-                <p className="font-bold text-[#17213A] mt-1">{selectedProposal?.clientName || activeProject?.clientName || 'Direct Client'}</p>
-                <p className="text-[11px] text-[#85899A] mt-0.5">Authorized Client Contact</p>
-              </div>
-            </div>
-
-            {/* Description & Work Breakdown */}
-            <div className="space-y-4 text-xs">
-              <div>
-                <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider block">
-                  Proposal Subject
-                </span>
-                <p className="text-sm font-bold text-[#17213A] mt-1">
-                  {selectedProposal?.title || title}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider block">
-                  Detailed Scope Specification
-                </span>
-                <div className="mt-1.5 p-4 rounded-xl bg-[#FAF9F6] border border-[#ECEAF0] text-[#17213A] leading-relaxed whitespace-pre-line">
-                  {selectedProposal?.additionalWork || additionalWork || 'No specific deliverables entered.'}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider block">
-                  Justification & Reason for Modification
-                </span>
-                <p className="mt-1 text-[#17213A] leading-relaxed">
-                  {selectedProposal?.reasonForChange || reasonForChange || 'Contractual boundary exceeded.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Cost Breakdown Table */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold text-[#85899A] uppercase tracking-wider block">
-                Resource & Fee Breakdown
-              </span>
-
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[#ECEAF0] text-[11px] font-semibold text-[#85899A]">
-                    <th className="py-2.5">Item Description</th>
-                    <th className="py-2.5 text-center">Allocated Hours</th>
-                    <th className="py-2.5 text-right">Agreed Rate</th>
-                    <th className="py-2.5 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#ECEAF0]">
-                  <tr>
-                    <td className="py-3 font-medium text-[#17213A]">
-                      {selectedProposal?.title || title}
-                    </td>
-                    <td className="py-3 text-center text-[#17213A]">
-                      {selectedProposal?.estimatedHours || estimatedHours} hrs
-                    </td>
-                    <td className="py-3 text-right text-[#85899A]">
-                      {selectedProposal?.currency || activeProject?.currency}{selectedProposal?.hourlyRate || hourlyRate}/hr
-                    </td>
-                    <td className="py-3 text-right font-bold text-[#17213A]">
-                      {selectedProposal?.currency || activeProject?.currency}{(selectedProposal?.additionalCost || additionalCost).toLocaleString()}
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-[#17213A] font-bold text-xs text-[#17213A]">
-                    <td colSpan={3} className="py-3 text-right">Total Additional Investment:</td>
-                    <td className="py-3 text-right text-sm text-[#6946D8]">
-                      {selectedProposal?.currency || activeProject?.currency}{(selectedProposal?.additionalCost || additionalCost).toLocaleString()}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Timeline Impact */}
-            <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#ECEAF0] flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#6946D8]" />
-                <span className="font-semibold text-[#17213A]">Delivery Milestone Adjustment:</span>
-              </div>
-              <span className="font-bold text-[#17213A]">
-                {(selectedProposal?.revisedDeadline || revisedDeadline) ? (selectedProposal?.revisedDeadline || revisedDeadline) : 'Calculated Upon Client Approval (+3 to 5 business days)'}
-              </span>
-            </div>
-
-            {/* Authorization Sign-off block */}
-            <div className="pt-6 border-t border-[#ECEAF0] grid grid-cols-2 gap-8 text-[11px] text-[#85899A]">
-              <div>
-                <p className="font-semibold text-[#17213A]">Prepared & Submitted By:</p>
-                <div className="h-10 border-b border-[#ECEAF0] mt-2" />
-                <p className="mt-1">Freelance Contractor (Tanya Garg)</p>
-              </div>
-
-              <div>
-                <p className="font-semibold text-[#17213A]">Client Approval & Signoff:</p>
-                <div className="h-10 border-b border-[#ECEAF0] mt-2" />
-                <p className="mt-1">Authorized Signature / Written Email Confirmation</p>
-              </div>
-            </div>
-
           </div>
 
         </div>

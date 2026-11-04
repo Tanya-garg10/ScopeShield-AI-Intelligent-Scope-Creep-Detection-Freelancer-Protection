@@ -171,6 +171,7 @@ function AppContent() {
       }}
       breadcrumbs={getBreadcrumbs()}
       projects={projects}
+      analyses={analyses}
       onSelectProject={(id) => {
         setSelectedProjectId(id);
         setActiveTab('projects');
