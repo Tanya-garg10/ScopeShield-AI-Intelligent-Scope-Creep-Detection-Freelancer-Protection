@@ -1,0 +1,6 @@
+{
+  "name": "ScopeShield AI",
+  "description": "Open-source, privacy-first AI scope manager and scope creep detector for freelancers and agencies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
