@@ -190,16 +190,14 @@ def extract_scope_from_text(raw_text: str) -> Dict[str, Any]:
         currency = "£"
 
     budget = 0.0
-    budget_match = re.search(r'(?:budget|fee|cost|price)[:\s]*([₹$€£]?)\s*([\d,]+)', text, re.IGNORECASE)
+    budget_match = re.search(r'(?:budget|fee|cost|price)(?:\s+is)?[:\s]*([₹$€£]?)\s*([\d,]+)', text, re.IGNORECASE)
     if budget_match:
         try:
             budget = float(budget_match.group(2).replace(",", ""))
         except ValueError:
-            budget = 30000.0 if currency == "₹" else 3000.0
-    else:
-        budget = 30000.0 if currency == "₹" else 3000.0
+            budget = 0.0
 
-    rate = 1000.0 if currency == "₹" else 75.0
+    rate = 0.0
     rate_match = re.search(r'(?:rate|hourly)[:\s]*([₹$€£]?)\s*([\d,]+)', text, re.IGNORECASE)
     if rate_match:
         try:
@@ -207,27 +205,57 @@ def extract_scope_from_text(raw_text: str) -> Dict[str, Any]:
         except ValueError:
             pass
 
-    revision_limit = 2
+    revision_limit = 0
     rev_match = re.search(r'(\d+)\s*(?:rounds? of revisions?|revisions?)', lower)
     if rev_match:
         revision_limit = int(rev_match.group(1))
 
-    included = [
-        "Up to 5 custom responsive pages",
-        "Mobile browser responsive design",
-        "Contact form and lead capture"
-    ]
-    excluded = [
-        "Payment gateway integration (e.g. Razorpay, Stripe)",
-        "Additional pages beyond agreed limit",
-        "Ongoing server maintenance"
-    ]
+    deadline_match = re.search(
+        r'(?:deadline|due date|delivery date|deliver by|completion date|by)\s*(?:is|:)?\s*'
+        r'(\d{4}-\d{2}-\d{2}|[A-Za-z]+\s+\d{1,2}(?:,\s*\d{4})?)',
+        text,
+        re.IGNORECASE,
+    )
+    deadline = deadline_match.group(1) if deadline_match else ""
+
+    included: List[str] = []
+    excluded: List[str] = []
+    section = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        lower_line = stripped.lower()
+        if not stripped:
+            continue
+        if any(marker in lower_line for marker in ("excluded:", "exclusions:", "out of scope:")):
+            section = "excluded"
+            heading_content = stripped.split(":", 1)[1].strip()
+            if heading_content:
+                excluded.append(heading_content)
+            continue
+        if any(marker in lower_line for marker in ("deliverables:", "included:", "scope:")):
+            section = "included"
+            heading_content = stripped.split(":", 1)[1].strip()
+            if heading_content:
+                included.append(heading_content)
+            continue
+        if stripped.startswith(("-", "*", "•")):
+            item = stripped[1:].strip()
+            if section == "included":
+                included.append(item)
+            elif section == "excluded":
+                excluded.append(item)
 
     missing = []
-    if "deadline" not in lower and "due" not in lower:
+    if budget == 0:
+        missing.append("Project Budget (not specified in brief)")
+    if revision_limit == 0:
+        missing.append("Revision Limit (not specified in brief)")
+    if not deadline:
         missing.append("Firm Delivery Deadline (needs confirmation)")
-    if "exclusion" not in lower and "excluded" not in lower:
+    if not excluded:
         missing.append("Explicit Excluded Boundaries (needs confirmation)")
+    if not included:
+        missing.append("Included Deliverables (not clearly structured in brief)")
 
     return {
         "name": text.splitlines()[0][:50] if text else "New Project Scope",
@@ -235,13 +263,10 @@ def extract_scope_from_text(raw_text: str) -> Dict[str, Any]:
         "currency": currency,
         "budget": budget,
         "hourly_rate": rate,
-        "deadline": "2026-11-30",
+        "deadline": deadline,
         "included_deliverables": included,
         "excluded_deliverables": excluded,
         "revision_limit": revision_limit,
-        "payment_milestones": [
-            f"50% upfront deposit ({currency}{(budget * 0.5):,.0f})",
-            f"50% upon final signoff ({currency}{(budget * 0.5):,.0f})"
-        ],
+        "payment_milestones": [],
         "missing_terms": missing
     }

@@ -1,11 +1,261 @@
 import { OllamaConfig, ProjectScope, ScopeAnalysis, ScopeChangeItem } from '../types';
 
 export const DEFAULT_OLLAMA_CONFIG: OllamaConfig = {
-  hostUrl: 'http://localhost:11434',
-  model: 'qwen3:4b-instruct',
+  hostUrl: import.meta.env.VITE_OLLAMA_HOST || 'http://localhost:11434',
+  model: import.meta.env.VITE_OLLAMA_MODEL || 'qwen3:4b-instruct',
   isConnected: false,
   installedModels: [],
 };
+
+async function generateOllamaText(config: OllamaConfig, prompt: string, format?: 'json'): Promise<string> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+  try {
+    const response = await fetch(`${config.hostUrl.replace(/\/$/, '')}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: config.model,
+        prompt,
+        stream: false,
+        ...(format ? { format } : {}),
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama returned HTTP status ${response.status}`);
+    }
+
+    const data: { response?: string; error?: string } = await response.json();
+    if (data.error) throw new Error(data.error);
+    if (typeof data.response !== 'string' || !data.response.trim()) {
+      throw new Error('Ollama returned an empty response.');
+    }
+    return data.response.trim();
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Ollama request timed out after 90 seconds.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function parseOllamaJson(response: string): Record<string, unknown> {
+  const normalized = response
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+  const start = normalized.indexOf('{');
+  const end = normalized.lastIndexOf('}');
+  if (start < 0 || end < start) throw new Error('Ollama did not return valid JSON.');
+  const parsed: unknown = JSON.parse(normalized.slice(start, end + 1));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Ollama returned an invalid JSON object.');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
+
+export async function extractScopeWithOllama(rawText: string, config: OllamaConfig) {
+  const response = await generateOllamaText(config, `Extract project scope facts from the client brief below.
+Do not invent missing information. Use 0 for unknown numeric amounts, an empty string for unknown dates/names, and empty arrays for absent lists.
+Return only a JSON object with these keys:
+{"name":"string","clientName":"string","currency":"₹|$|€|£","budget":0,"hourlyRate":0,"deadline":"string","revisionLimit":0,"includedDeliverables":["string"],"excludedDeliverables":["string"],"requirements":["string"],"conditions":["string"]}
+
+Client brief:
+${rawText}`, 'json');
+  const result = parseOllamaJson(response);
+  const fallback = extractScopeHeuristics(rawText);
+  const currencies: ProjectScope['currency'][] = ['₹', '$', '€', '£'];
+  const currency = currencies.includes(result.currency as ProjectScope['currency'])
+    ? result.currency as ProjectScope['currency']
+    : fallback.currency || '₹';
+  const positiveNumber = (value: unknown, fallbackValue: number) =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallbackValue;
+  const includedDeliverables = stringList(result.includedDeliverables);
+  const excludedDeliverables = stringList(result.excludedDeliverables);
+  const requirements = stringList(result.requirements);
+  const conditions = stringList(result.conditions);
+  const budget = positiveNumber(result.budget, fallback.budget || 0);
+  const deadline = typeof result.deadline === 'string' ? result.deadline : fallback.deadline || '';
+  const revisionLimit = positiveNumber(result.revisionLimit, fallback.revisionLimit || 0);
+  const missingTerms: string[] = [];
+
+  if (budget === 0) missingTerms.push('Project Budget (not specified in brief)');
+  if (!deadline) missingTerms.push('Delivery Deadline (not specified in brief)');
+  if (revisionLimit === 0) missingTerms.push('Revision Limit (not specified in brief)');
+  if (excludedDeliverables.length === 0) missingTerms.push('Explicit Exclusions (recommended to define to prevent creep)');
+
+  return {
+    ...fallback,
+    name: typeof result.name === 'string' && result.name.trim() ? result.name.trim() : fallback.name,
+    clientName: typeof result.clientName === 'string' ? result.clientName.trim() : fallback.clientName,
+    currency,
+    budget,
+    hourlyRate: positiveNumber(result.hourlyRate, fallback.hourlyRate || (currency === '₹' ? 1000 : 75)),
+    deadline,
+    revisionLimit,
+    includedDeliverables: includedDeliverables.length ? includedDeliverables : fallback.includedDeliverables,
+    excludedDeliverables: excludedDeliverables.length ? excludedDeliverables : fallback.excludedDeliverables,
+    requirements: requirements.length ? requirements : fallback.requirements,
+    conditions: conditions.length ? conditions : fallback.conditions,
+    missingTerms,
+  };
+}
+
+export async function analyzeScopeWithOllama(
+  project: ProjectScope,
+  clientMessage: string,
+  config: OllamaConfig,
+  tone: 'professional' | 'friendly' | 'formal' = 'professional'
+): Promise<ScopeAnalysis> {
+  const response = await generateOllamaText(config, `Compare the client's request with the agreement. Treat the agreement as the only source of contract facts. Cite included/excluded clauses exactly as written, or leave the matched clause empty. Do not invent contract terms.
+Return only JSON with this shape:
+{"changes":[{"requestedItem":"string","classification":"IN_SCOPE|NEEDS_CLARIFICATION|OUT_OF_SCOPE","severity":"low|medium|high","matchedOriginalItem":"exact included clause or empty","matchedExcludedItem":"exact excluded clause or empty","reason":"string","suggestedHours":0}],"missingInformation":["string"],"aiExplanation":"string","suggestedAction":"string"}
+
+Agreement:
+${JSON.stringify({
+  project: project.name,
+  client: project.clientName,
+  includedDeliverables: project.includedDeliverables,
+  excludedDeliverables: project.excludedDeliverables,
+  revisionLimit: project.revisionLimit,
+  revisionsUsed: project.revisionsUsed,
+  deadline: project.deadline,
+  hourlyRate: project.hourlyRate,
+  currency: project.currency,
+})}
+
+Client request:
+${clientMessage}`, 'json');
+  const result = parseOllamaJson(response);
+  if (!Array.isArray(result.changes) || result.changes.length === 0) {
+    throw new Error('Ollama returned no scope findings.');
+  }
+
+  const validClassifications = ['IN_SCOPE', 'NEEDS_CLARIFICATION', 'OUT_OF_SCOPE'] as const;
+  const validSeverities = ['low', 'medium', 'high'] as const;
+  const changes: ScopeChangeItem[] = result.changes.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error('Ollama returned a malformed scope finding.');
+    }
+    const item = entry as Record<string, unknown>;
+    if (typeof item.requestedItem !== 'string' || !item.requestedItem.trim()) {
+      throw new Error('Ollama returned a scope finding without a requested item.');
+    }
+    const classification = validClassifications.includes(item.classification as typeof validClassifications[number])
+      ? item.classification as typeof validClassifications[number]
+      : 'NEEDS_CLARIFICATION';
+    const severity = validSeverities.includes(item.severity as typeof validSeverities[number])
+      ? item.severity as typeof validSeverities[number]
+      : 'medium';
+    const matchedOriginalItem = typeof item.matchedOriginalItem === 'string'
+      && project.includedDeliverables.includes(item.matchedOriginalItem)
+      ? item.matchedOriginalItem : undefined;
+    const matchedExcludedItem = typeof item.matchedExcludedItem === 'string'
+      && project.excludedDeliverables.includes(item.matchedExcludedItem)
+      ? item.matchedExcludedItem : undefined;
+    const suggestedHours = typeof item.suggestedHours === 'number'
+      && Number.isFinite(item.suggestedHours) && item.suggestedHours >= 0
+      ? item.suggestedHours : 0;
+    const userApproved = classification === 'OUT_OF_SCOPE';
+
+    return {
+      id: `change-ai-${index + 1}`,
+      requestedItem: item.requestedItem.trim(),
+      classification,
+      severity,
+      ...(matchedOriginalItem ? { matchedOriginalItem } : {}),
+      ...(matchedExcludedItem ? { matchedExcludedItem } : {}),
+      contractEvidence: matchedOriginalItem
+        ? `Included deliverable: "${matchedOriginalItem}"`
+        : matchedExcludedItem
+          ? `Explicit exclusion: "${matchedExcludedItem}"`
+          : 'No exact matching contract clause was identified.',
+      reason: typeof item.reason === 'string' && item.reason.trim()
+        ? item.reason.trim() : 'Review this request against the agreement before committing.',
+      suggestedHours,
+      userAdjustedHours: userApproved ? suggestedHours : 0,
+      userApproved,
+    };
+  });
+
+  const overallClassification = changes.some(item => item.classification === 'OUT_OF_SCOPE')
+    ? 'OUT_OF_SCOPE'
+    : changes.some(item => item.classification === 'NEEDS_CLARIFICATION')
+      ? 'NEEDS_CLARIFICATION' : 'IN_SCOPE';
+  const totalSuggestedHours = changes.reduce(
+    (total, item) => total + (item.userApproved ? item.suggestedHours : 0), 0
+  );
+  const totalAdjustedHours = changes.reduce(
+    (total, item) => total + (item.userApproved ? item.userAdjustedHours : 0), 0
+  );
+  const totalCost = totalAdjustedHours * project.hourlyRate;
+  const missingInformation = stringList(result.missingInformation);
+
+  return {
+    id: `analysis-${Date.now()}`,
+    projectId: project.id,
+    projectName: project.name,
+    clientName: project.clientName || 'Client',
+    clientMessage,
+    timestamp: new Date().toISOString(),
+    modelUsed: config.model,
+    isDemoMode: false,
+    overallClassification,
+    aiExplanation: typeof result.aiExplanation === 'string' && result.aiExplanation.trim()
+      ? result.aiExplanation.trim() : 'Review the findings and cited contract clauses before responding.',
+    evidenceOriginalScope: changes.map(item => item.contractEvidence),
+    missingInformation,
+    suggestedAction: typeof result.suggestedAction === 'string' ? result.suggestedAction.trim() : '',
+    changes,
+    totalSuggestedHours,
+    totalAdjustedHours,
+    totalCost,
+    currency: project.currency,
+    suggestedTimelineExtensionDays: totalAdjustedHours > 20 ? 5 : totalAdjustedHours > 10 ? 3 : totalAdjustedHours > 0 ? 1 : 0,
+    status: overallClassification === 'OUT_OF_SCOPE' ? 'proposal_generated' : 'pending_review',
+    tone,
+    generatedResponseText: '',
+  };
+}
+
+export async function generateClientResponseWithOllama(
+  project: ProjectScope,
+  analysis: ScopeAnalysis,
+  tone: 'professional' | 'friendly' | 'formal',
+  config: OllamaConfig
+): Promise<string> {
+  return generateOllamaText(config, `Write a concise, ready-to-send client reply in a ${tone} tone. Use Markdown formatting such as **bold** only where helpful. Do not invent agreed contract terms, dates, fees, or approvals. For out-of-scope work, clearly state that work will begin only after written approval.
+
+Project: ${project.name}
+Client: ${project.clientName || 'Client'}
+Classification: ${analysis.overallClassification}
+Client message: ${analysis.clientMessage}
+Findings: ${JSON.stringify(analysis.changes.map(item => ({
+    request: item.requestedItem,
+    classification: item.classification,
+    reason: item.reason,
+    hours: item.userApproved ? item.userAdjustedHours : 0,
+    contractEvidence: item.contractEvidence,
+  })))}
+Missing details: ${JSON.stringify(analysis.missingInformation)}
+Additional hours: ${analysis.totalAdjustedHours}
+Additional cost: ${project.currency}${analysis.totalCost}
+Hourly rate: ${project.currency}${project.hourlyRate}/hr
+Schedule impact: ${analysis.suggestedTimelineExtensionDays} business days
+
+Return only the message, without analysis or code fences.`);
+}
 
 // Check if Ollama is running locally
 export async function checkOllamaConnection(hostUrl = 'http://localhost:11434'): Promise<{

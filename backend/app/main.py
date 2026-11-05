@@ -8,11 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import (
     ProjectCreate, ProjectResponse, 
     AnalyzeRequest, AnalyzeResponse,
-    ExtractScopeRequest, ExtractScopeResponse
+    ExtractScopeRequest, ExtractScopeResponse,
+    AIExtractScopeRequest, AIExtractScopeResponse,
+    AIAnalyzeRequest, AIAnalyzeResponse, AIGeneratedFinding,
+    AIReplyRequest, AIReplyResponse,
 )
 from app.database import get_db, init_db
 from app.analyzer import analyze_scope, extract_scope_from_text
 from app.ollama_client import check_ollama_health
+from app import gemini_service
 
 app = FastAPI(
     title="ScopeShield AI API",
@@ -46,6 +50,113 @@ async def health_check():
         "ollama": ollama_status,
         "timestamp": datetime.utcnow().isoformat()
     }
+
+@app.get("/api/ai/status", tags=["Gemini AI"])
+async def ai_status():
+    return {
+        "configured": gemini_service.is_gemini_configured(),
+        "provider": "Gemini",
+        "model": gemini_service.GEMINI_MODEL,
+    }
+
+@app.post("/api/ai/extract-scope", response_model=AIExtractScopeResponse, tags=["Gemini AI"])
+async def extract_scope_with_gemini(req: AIExtractScopeRequest):
+    if not gemini_service.is_gemini_configured():
+        raise HTTPException(status_code=503, detail="Gemini is not configured. Set GEMINI_API_KEY on the backend.")
+    try:
+        extracted = await gemini_service.extract_brief(req.raw_brief)
+        return AIExtractScopeResponse(**extracted.model_dump())
+    except ValueError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="Gemini brief extraction failed. Check the backend logs and API configuration.") from error
+
+@app.post("/api/ai/analyze", response_model=AIAnalyzeResponse, tags=["Gemini AI"])
+async def analyze_scope_with_gemini(req: AIAnalyzeRequest):
+    if not gemini_service.is_gemini_configured():
+        raise HTTPException(status_code=503, detail="Gemini is not configured. Set GEMINI_API_KEY on the backend.")
+    project = req.project.model_dump()
+    try:
+        result = await gemini_service.analyze_agreement(project, req.client_message, req.tone)
+    except ValueError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="Gemini scope analysis failed. Check the backend logs and API configuration.") from error
+
+    classifications = [change.classification for change in result.changes]
+    overall_classification = (
+        "OUT_OF_SCOPE" if "OUT_OF_SCOPE" in classifications else
+        "NEEDS_CLARIFICATION" if "NEEDS_CLARIFICATION" in classifications else
+        "IN_SCOPE"
+    )
+    changes = []
+    evidence = []
+    for index, finding in enumerate(result.changes, start=1):
+        matched_original = finding.matched_original_item or None
+        matched_excluded = finding.matched_excluded_item or None
+        if matched_excluded:
+            contract_evidence = f'Explicitly excluded in the agreement: "{matched_excluded}".'
+        elif matched_original:
+            contract_evidence = f'Included in the agreement: "{matched_original}".'
+        else:
+            included = (
+                project["included_deliverables"]
+                + project["requirements"]
+                + project["conditions"]
+            )
+            contract_evidence = (
+                "No matching included or excluded clause was found in the agreement."
+                + (f' The agreement lists: "{included[0]}".' if included else " The agreement has no listed included deliverables.")
+            )
+        evidence.append(contract_evidence)
+        changes.append(AIGeneratedFinding(
+            id=f"gemini-change-{index}",
+            requested_item=finding.requested_item,
+            classification=finding.classification,
+            severity=finding.severity,
+            matched_original_item=matched_original,
+            matched_excluded_item=matched_excluded,
+            contract_evidence=contract_evidence,
+            reason=finding.reason,
+            suggested_hours=finding.suggested_hours,
+            user_adjusted_hours=finding.suggested_hours,
+            user_approved=finding.classification == "OUT_OF_SCOPE",
+        ))
+
+    total_hours = sum(change.user_adjusted_hours for change in changes if change.user_approved)
+    total_cost = total_hours * project["hourly_rate"]
+    timeline_days = 5 if total_hours > 20 else 3 if total_hours > 10 else 1 if total_hours > 0 else 0
+    return AIAnalyzeResponse(
+        model_used=gemini_service.GEMINI_MODEL,
+        overall_classification=overall_classification,
+        ai_explanation=result.ai_explanation,
+        evidence_original_scope=evidence,
+        missing_information=result.missing_information,
+        suggested_action=result.suggested_action,
+        changes=changes,
+        total_suggested_hours=total_hours,
+        total_adjusted_hours=total_hours,
+        total_cost=total_cost,
+        currency=project["currency"],
+        suggested_timeline_extension_days=timeline_days,
+        generated_response_text=result.client_reply,
+    )
+
+@app.post("/api/ai/reply", response_model=AIReplyResponse, tags=["Gemini AI"])
+async def generate_reply_with_gemini(req: AIReplyRequest):
+    if not gemini_service.is_gemini_configured():
+        raise HTTPException(status_code=503, detail="Gemini is not configured. Set GEMINI_API_KEY on the backend.")
+    try:
+        reply = await gemini_service.generate_client_reply(
+            req.project.model_dump(),
+            req.analysis.model_dump(),
+            req.tone,
+        )
+        return AIReplyResponse(generated_response_text=reply)
+    except ValueError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="Gemini reply generation failed. Check the backend logs and API configuration.") from error
 
 @app.get("/api/projects", response_model=List[ProjectResponse], tags=["Projects"])
 def list_projects():

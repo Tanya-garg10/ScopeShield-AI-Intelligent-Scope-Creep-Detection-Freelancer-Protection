@@ -27,6 +27,8 @@ export interface ProjectScope {
   status?: 'Active' | 'Completed' | 'Pending Review' | 'On Hold';
   includedDeliverables: string[];
   excludedDeliverables: string[];
+  requirements?: string[];
+  conditions?: string[];
   revisionLimit: number;
   revisionsUsed: number;
   paymentMilestones: string[];

@@ -24,7 +24,13 @@ import {
 } from 'lucide-react';
 import { ProjectScope, ScopeAnalysis, ScopeChangeItem, OllamaConfig, ChangeProposal } from '../types';
 import { DEMO_CLIENT_MESSAGE } from '../services/demoData';
-import { runScopeCreepComparison, generateChangeRequestCopy } from '../services/ollama';
+import {
+  analyzeScopeWithOllama,
+  generateChangeRequestCopy,
+  generateClientResponseWithOllama,
+  runScopeCreepComparison
+} from '../services/ollama';
+import { analyzeProjectWithGemini, generateReplyWithGemini } from '../services/gemini';
 import { ScopeMap } from './ScopeMap';
 import { useToast } from './Toast';
 
@@ -35,8 +41,44 @@ interface ScopeCreepDetectorProps {
   onGenerateProposal?: (proposal: Partial<ChangeProposal>) => void;
   isDemoMode: boolean;
   ollamaConfig: OllamaConfig;
+  isGeminiConfigured: boolean;
   onOpenSettings: () => void;
 }
+
+const renderInlineMarkdown = (text: string) =>
+  text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+
+const FormattedResponse: React.FC<{ text: string }> = ({ text }) => (
+  <div className="space-y-2">
+    {text.split('\n').map((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed) return <div key={index} className="h-1" />;
+      if (/^---+$/.test(trimmed)) return <hr key={index} className="border-[#E9E7E2]" />;
+      const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+      if (heading) {
+        return <h4 key={index} className="font-bold text-sm">{renderInlineMarkdown(heading[1])}</h4>;
+      }
+      const listItem = trimmed.match(/^(?:[-*•]\s+|\d+[.)]\s+)(.+)$/);
+      if (listItem) {
+        return (
+          <div key={index} className="flex items-start gap-2 pl-1">
+            <span className="text-[#7255E8]">•</span>
+            <span>{renderInlineMarkdown(listItem[1])}</span>
+          </div>
+        );
+      }
+      return <p key={index}>{renderInlineMarkdown(trimmed)}</p>;
+    })}
+  </div>
+);
 
 export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
   projects,
@@ -45,6 +87,7 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
   onGenerateProposal,
   isDemoMode,
   ollamaConfig,
+  isGeminiConfigured,
   onOpenSettings
 }) => {
   const toast = useToast();
@@ -81,6 +124,55 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
   const [selectedTone, setSelectedTone] = useState<'professional' | 'friendly' | 'formal'>('professional');
   const [isEditingResponse, setIsEditingResponse] = useState<boolean>(false);
   const [customResponseText, setCustomResponseText] = useState<string>('');
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState<boolean>(false);
+
+  const buildClientResponse = async (
+    analysis: ScopeAnalysis,
+    tone: 'professional' | 'friendly' | 'formal'
+  ): Promise<string> => {
+    if (!activeProject) return '';
+    const fallback = generateChangeRequestCopy(activeProject, analysis, tone);
+    if (isDemoMode) return fallback;
+
+    if (isGeminiConfigured) {
+      try {
+        return await generateReplyWithGemini(activeProject, analysis, tone);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!ollamaConfig.isConnected) {
+          toast.warning('Gemini reply unavailable', `Using the standard reply template instead. ${message}`);
+          return fallback;
+        }
+        toast.warning('Gemini reply unavailable', `Trying local Ollama. ${message}`);
+      }
+    }
+
+    if (ollamaConfig.isConnected) {
+      try {
+        return await generateClientResponseWithOllama(activeProject, analysis, tone, ollamaConfig);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        toast.warning('AI reply unavailable', `Using the standard reply template instead. ${message}`);
+      }
+    }
+    return fallback;
+  };
+
+  const saveAnalysisWithUpdatedReply = async (
+    analysis: ScopeAnalysis,
+    tone: 'professional' | 'friendly' | 'formal'
+  ) => {
+    setIsGeneratingResponse(true);
+    try {
+      const generatedResponseText = await buildClientResponse(analysis, tone);
+      const updatedAnalysis = { ...analysis, tone, generatedResponseText };
+      setCustomResponseText(generatedResponseText);
+      setCurrentAnalysis(updatedAnalysis);
+      onSaveAnalysis(updatedAnalysis);
+    } finally {
+      setIsGeneratingResponse(false);
+    }
+  };
 
   const analysisSteps = [
     'Reading original agreement clauses...',
@@ -107,7 +199,7 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
   ];
 
   // Run Animated Analysis Sequence
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!activeProject || !clientMessage.trim()) {
       toast.warning('Input required', 'Please select a project and enter a client request.');
       return;
@@ -127,18 +219,47 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
       });
     }, 280);
 
-    setTimeout(() => {
-      clearInterval(stepInterval);
-      const result = runScopeCreepComparison(
-        activeProject, 
-        clientMessage, 
-        ollamaConfig.isConnected ? ollamaConfig.model : 'ScopeShield Deterministic AI Engine (Sample Mode)', 
-        isDemoMode
+    try {
+      await new Promise(resolve => setTimeout(resolve, 900));
+      let result = runScopeCreepComparison(
+        activeProject,
+        clientMessage,
+        'ScopeShield Deterministic AI Engine (Sample Mode)',
+        true
       );
+
+      if (isGeminiConfigured && !isDemoMode) {
+        try {
+          result = await analyzeProjectWithGemini(activeProject, clientMessage, selectedTone);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (ollamaConfig.isConnected) {
+            toast.warning('Gemini analysis unavailable', `Trying local Ollama. ${message}`);
+            try {
+              result = await analyzeScopeWithOllama(activeProject, clientMessage, ollamaConfig, selectedTone);
+            } catch (ollamaError: unknown) {
+              const ollamaMessage = ollamaError instanceof Error ? ollamaError.message : String(ollamaError);
+              toast.warning('Local AI analysis unavailable', `Using verified sample analysis instead. ${ollamaMessage}`);
+            }
+          } else {
+            toast.warning('Gemini analysis unavailable', `Using verified sample analysis instead. ${message}`);
+          }
+        }
+      } else if (ollamaConfig.isConnected && !isDemoMode) {
+        try {
+          result = await analyzeScopeWithOllama(activeProject, clientMessage, ollamaConfig, selectedTone);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          toast.warning('AI analysis unavailable', `Using verified sample analysis instead. ${message}`);
+        }
+      }
+
+      if (!result.modelUsed.toLowerCase().includes('gemini') || !result.generatedResponseText) {
+        result.generatedResponseText = await buildClientResponse(result, selectedTone);
+      }
       setCurrentAnalysis(result);
       setCustomResponseText(result.generatedResponseText);
       onSaveAnalysis(result);
-      setIsAnalyzing(false);
 
       if (result.overallClassification === 'OUT_OF_SCOPE') {
         toast.warning('Scope Creep Identified', `Flagged items outside the baseline of ${activeProject.name}`);
@@ -147,11 +268,14 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
       } else {
         toast.success('In Scope', 'Request is covered under existing contract deliverables.');
       }
-    }, 1500);
+    } finally {
+      clearInterval(stepInterval);
+      setIsAnalyzing(false);
+    }
   };
 
   // Adjust item hours
-  const handleHoursChange = (changeId: string, hours: number) => {
+  const handleHoursChange = async (changeId: string, hours: number) => {
     if (!currentAnalysis || !activeProject) return;
     const safeHours = Math.max(0, hours);
 
@@ -175,16 +299,11 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
       totalCost
     };
 
-    const newCopy = generateChangeRequestCopy(activeProject, updatedAnalysis, selectedTone);
-    updatedAnalysis.generatedResponseText = newCopy;
-    setCustomResponseText(newCopy);
-
-    setCurrentAnalysis(updatedAnalysis);
-    onSaveAnalysis(updatedAnalysis);
+    await saveAnalysisWithUpdatedReply(updatedAnalysis, selectedTone);
   };
 
   // Toggle item approval
-  const handleToggleApprove = (changeId: string) => {
+  const handleToggleApprove = async (changeId: string) => {
     if (!currentAnalysis || !activeProject) return;
 
     const updatedChanges = currentAnalysis.changes.map(item => {
@@ -207,34 +326,39 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
       totalCost
     };
 
-    const newCopy = generateChangeRequestCopy(activeProject, updatedAnalysis, selectedTone);
-    updatedAnalysis.generatedResponseText = newCopy;
-    setCustomResponseText(newCopy);
-
-    setCurrentAnalysis(updatedAnalysis);
-    onSaveAnalysis(updatedAnalysis);
+    await saveAnalysisWithUpdatedReply(updatedAnalysis, selectedTone);
   };
 
   // Tone Change
-  const handleToneChange = (tone: 'professional' | 'friendly' | 'formal') => {
+  const handleToneChange = async (tone: 'professional' | 'friendly' | 'formal') => {
     setSelectedTone(tone);
     if (!activeProject || !currentAnalysis) return;
-    const newCopy = generateChangeRequestCopy(activeProject, currentAnalysis, tone);
+    setIsGeneratingResponse(true);
+    const newCopy = await buildClientResponse(currentAnalysis, tone);
     setCustomResponseText(newCopy);
     setCurrentAnalysis({
       ...currentAnalysis,
       tone,
       generatedResponseText: newCopy
     });
+    setIsGeneratingResponse(false);
   };
 
   // Copy response
-  const handleCopyResponse = () => {
+  const handleCopyResponse = async () => {
     const textToCopy = isEditingResponse ? customResponseText : (currentAnalysis?.generatedResponseText || customResponseText);
     if (!textToCopy) return;
 
-    navigator.clipboard.writeText(textToCopy);
-    toast.success('Response Copied', 'Paste directly into your client communication.');
+    const plainText = textToCopy
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1');
+    try {
+      await navigator.clipboard.writeText(plainText);
+      toast.success('Response Copied', 'Paste directly into your client communication.');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error('Copy failed', message);
+    }
   };
 
   // Create Change Request from analysis
@@ -357,6 +481,22 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
                 ))}
               </div>
             </div>
+
+            {((activeProject.requirements?.length || 0) > 0 || (activeProject.conditions?.length || 0) > 0) && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-[#171A2B] block">
+                  Additional Agreement Terms
+                </span>
+                <div className="space-y-1.5 bg-[#F8F7F4] p-3 rounded-xl border border-[#E9E7E2]">
+                  {[...(activeProject.requirements || []), ...(activeProject.conditions || [])].map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs text-[#171A2B]">
+                      <span className="text-[#7255E8] font-bold">•</span>
+                      <span className="leading-relaxed">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Terms Summary */}
             <div className="grid grid-cols-2 gap-3 pt-2">
@@ -523,7 +663,9 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
                   )}
 
                   <span className="text-xs text-[#777887] font-mono">
-                    Deterministic Scope Match • 100% Contract Clause Grounded
+                    {currentAnalysis.isDemoMode
+                      ? 'Verified Heuristic Analysis | Sample Mode'
+                      : `${currentAnalysis.modelUsed.toLowerCase().includes('gemini') ? 'Gemini Analysis' : 'AI Analysis'} | ${currentAnalysis.modelUsed}`}
                   </span>
                 </div>
               </div>
@@ -671,7 +813,8 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
                 ].map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => handleToneChange(t.id as any)}
+                    onClick={() => { void handleToneChange(t.id as 'professional' | 'friendly' | 'formal'); }}
+                    disabled={isGeneratingResponse}
                     className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
                       selectedTone === t.id
                         ? 'bg-white text-[#7255E8] shadow-xs'
@@ -694,8 +837,10 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
                   className="w-full p-4 text-xs font-mono bg-[#F8F7F4] border border-[#E9E7E2] rounded-xl text-[#171A2B] focus:outline-none focus:border-[#7255E8] leading-relaxed resize-none"
                 />
               ) : (
-                <div className="p-5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] text-xs text-[#171A2B] whitespace-pre-line leading-relaxed font-sans max-h-96 overflow-y-auto">
-                  {customResponseText || currentAnalysis.generatedResponseText}
+                <div className="p-5 rounded-xl bg-[#F8F7F4] border border-[#E9E7E2] text-xs text-[#171A2B] leading-relaxed font-sans max-h-96 overflow-y-auto">
+                  {isGeneratingResponse
+                    ? <p className="text-[#777887]">Generating client reply...</p>
+                    : <FormattedResponse text={customResponseText || currentAnalysis.generatedResponseText} />}
                 </div>
               )}
             </div>
@@ -712,12 +857,13 @@ export const ScopeCreepDetector: React.FC<ScopeCreepDetectorProps> = ({
                 </button>
 
                 <button
-                  onClick={() => handleToneChange(selectedTone)}
+                  onClick={() => { void handleToneChange(selectedTone); }}
+                  disabled={isGeneratingResponse}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#E9E7E2] bg-white hover:bg-[#F8F7F4] text-xs font-semibold text-[#777887] hover:text-[#171A2B] transition-colors"
                   title="Regenerate from contract clauses"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Regenerate</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingResponse ? 'animate-spin' : ''}`} />
+                  <span>{isGeneratingResponse ? 'Generating...' : 'Regenerate'}</span>
                 </button>
               </div>
 

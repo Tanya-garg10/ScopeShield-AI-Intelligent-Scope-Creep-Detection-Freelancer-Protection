@@ -33,6 +33,7 @@ import {
   DEFAULT_OLLAMA_CONFIG, 
   checkOllamaConnection 
 } from './services/ollama';
+import { checkGeminiStatus } from './services/gemini';
 import { 
   HACKTOBERFEST_DEMO_PROJECT, 
   DEMO_CLIENT_MESSAGE 
@@ -52,6 +53,7 @@ function AppContent() {
   // Settings & Modals
   const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
   const [ollamaConfig, setOllamaConfig] = useState<OllamaConfig>(DEFAULT_OLLAMA_CONFIG);
+  const [isGeminiConfigured, setIsGeminiConfigured] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
 
@@ -72,8 +74,15 @@ function AppContent() {
       setSelectedProjectId(storedProjects[0].id);
     }
 
-    // Ping local Ollama in background
-    checkOllamaConnection('http://localhost:11434').then(res => {
+    // Detect configured Gemini backend and local Ollama in background.
+    checkGeminiStatus()
+      .then(result => {
+        setIsGeminiConfigured(result.configured);
+        if (result.configured) setIsDemoMode(false);
+      })
+      .catch(() => setIsGeminiConfigured(false));
+
+    checkOllamaConnection(DEFAULT_OLLAMA_CONFIG.hostUrl).then(res => {
       if (res.isConnected) {
         setOllamaConfig(prev => ({
           ...prev,
@@ -243,6 +252,7 @@ function AppContent() {
           onGenerateProposal={handleGenerateProposalFromAnalysis}
           isDemoMode={isDemoMode}
           ollamaConfig={ollamaConfig}
+          isGeminiConfigured={isGeminiConfigured}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
       )}
@@ -258,6 +268,7 @@ function AppContent() {
           initialProject={editingProject}
           isDemoMode={isDemoMode}
           ollamaConfig={ollamaConfig}
+          isGeminiConfigured={isGeminiConfigured}
         />
       )}
 

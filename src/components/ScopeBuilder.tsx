@@ -15,7 +15,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { ProjectScope, Currency, OllamaConfig } from '../types';
-import { extractScopeHeuristics } from '../services/ollama';
+import { extractScopeHeuristics, extractScopeWithOllama } from '../services/ollama';
+import { extractBriefWithGemini } from '../services/gemini';
 import { useToast } from './Toast';
 
 interface ScopeBuilderProps {
@@ -24,6 +25,7 @@ interface ScopeBuilderProps {
   initialProject?: ProjectScope;
   isDemoMode: boolean;
   ollamaConfig: OllamaConfig;
+  isGeminiConfigured: boolean;
 }
 
 export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
@@ -31,7 +33,8 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
   onCancel,
   initialProject,
   isDemoMode,
-  ollamaConfig
+  ollamaConfig,
+  isGeminiConfigured
 }) => {
   const toast = useToast();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -49,6 +52,9 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [missingTerms, setMissingTerms] = useState<string[]>([]);
   const [extractedConditions, setExtractedConditions] = useState<string[]>([]);
+  const [extractedRequirements, setExtractedRequirements] = useState<string[]>([]);
+  const [projectRequirements, setProjectRequirements] = useState<string[]>(initialProject?.requirements || []);
+  const [projectConditions, setProjectConditions] = useState<string[]>(initialProject?.conditions || []);
 
   const [includedDeliverables, setIncludedDeliverables] = useState<string[]>(
     initialProject?.includedDeliverables || [
@@ -75,49 +81,79 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
   const [revisionsUsed, setRevisionsUsed] = useState<number>(initialProject?.revisionsUsed || 0);
 
   // AI Extraction Action: Generate Structured Scope from Brief
-  const handleGenerateStructuredScope = () => {
+  const handleGenerateStructuredScope = async () => {
     if (!originalBrief.trim()) {
       toast.warning('Brief is empty', 'Paste your client brief or project email first.');
       return;
     }
 
     setIsExtracting(true);
-    setTimeout(() => {
-      try {
-        const extracted = extractScopeHeuristics(originalBrief);
-        
-        // Auto-fill extracted values without overwriting what user already typed
-        if (!name && extracted.name) setName(extracted.name);
-        if (!clientName && extracted.clientName && extracted.clientName !== 'Client (To be confirmed)') {
-          setClientName(extracted.clientName);
+    try {
+      let extracted;
+      if (isGeminiConfigured && !isDemoMode) {
+        try {
+          extracted = await extractBriefWithGemini(originalBrief);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          toast.warning('Gemini extraction unavailable', `Trying the local AI or verified brief parser. ${message}`);
+          if (ollamaConfig.isConnected) {
+            try {
+              extracted = await extractScopeWithOllama(originalBrief, ollamaConfig);
+            } catch (ollamaError: unknown) {
+              const ollamaMessage = ollamaError instanceof Error ? ollamaError.message : String(ollamaError);
+              toast.warning('Local AI extraction unavailable', `Using verified brief parsing instead. ${ollamaMessage}`);
+              extracted = extractScopeHeuristics(originalBrief);
+            }
+          } else {
+            extracted = extractScopeHeuristics(originalBrief);
+          }
         }
-        if (extracted.currency) setCurrency(extracted.currency);
-        if (extracted.budget && extracted.budget > 0) setBudget(extracted.budget);
-        if (extracted.hourlyRate && extracted.hourlyRate > 0) setHourlyRate(extracted.hourlyRate);
-        if (extracted.deadline) setDeadline(extracted.deadline);
-        if (extracted.revisionLimit && extracted.revisionLimit > 0) setRevisionLimit(extracted.revisionLimit);
-
-        if (extracted.includedDeliverables && extracted.includedDeliverables.length > 0) {
-          setIncludedDeliverables(extracted.includedDeliverables);
+      } else if (ollamaConfig.isConnected && !isDemoMode) {
+        try {
+          extracted = await extractScopeWithOllama(originalBrief, ollamaConfig);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          toast.warning('AI extraction unavailable', `Using verified brief parsing instead. ${message}`);
+          extracted = extractScopeHeuristics(originalBrief);
         }
-        if (extracted.excludedDeliverables && extracted.excludedDeliverables.length > 0) {
-          setExcludedDeliverables(extracted.excludedDeliverables);
-        }
-        if (extracted.conditions && extracted.conditions.length > 0) {
-          setExtractedConditions(extracted.conditions);
-        }
-
-        setMissingTerms(extracted.missingTerms || []);
-        setIsExtracting(false);
-        toast.success(
-          'Structured Scope Generated',
-          `Extracted ${extracted.includedDeliverables?.length || 0} deliverables and ${extracted.excludedDeliverables?.length || 0} boundary exclusions.`
-        );
-      } catch (err) {
-        setIsExtracting(false);
-        toast.error('Extraction failed', 'Please review the brief format.');
+      } else {
+        extracted = extractScopeHeuristics(originalBrief);
       }
-    }, 600);
+
+      // Auto-fill extracted values without overwriting what user already typed
+      if (!name && extracted.name) setName(extracted.name);
+      if (!clientName && extracted.clientName && extracted.clientName !== 'Client (To be confirmed)') {
+        setClientName(extracted.clientName);
+      }
+      if (extracted.currency) setCurrency(extracted.currency);
+      if (extracted.budget && extracted.budget > 0) setBudget(extracted.budget);
+      if (extracted.hourlyRate && extracted.hourlyRate > 0) setHourlyRate(extracted.hourlyRate);
+      if (extracted.deadline) setDeadline(extracted.deadline);
+      if (extracted.revisionLimit && extracted.revisionLimit > 0) setRevisionLimit(extracted.revisionLimit);
+
+      if (extracted.includedDeliverables && extracted.includedDeliverables.length > 0) {
+        setIncludedDeliverables(extracted.includedDeliverables);
+      }
+      if (extracted.excludedDeliverables && extracted.excludedDeliverables.length > 0) {
+        setExcludedDeliverables(extracted.excludedDeliverables);
+      }
+      if (extracted.conditions && extracted.conditions.length > 0) {
+        setExtractedConditions(extracted.conditions);
+        setProjectConditions(extracted.conditions);
+      }
+      if (extracted.requirements && extracted.requirements.length > 0) {
+        setExtractedRequirements(extracted.requirements);
+        setProjectRequirements(extracted.requirements);
+      }
+
+      setMissingTerms(extracted.missingTerms || []);
+      toast.success(
+        'Structured Scope Generated',
+        `Extracted ${extracted.includedDeliverables?.length || 0} deliverables and ${extracted.excludedDeliverables?.length || 0} boundary exclusions.`
+      );
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   // Add / Remove Deliverables
@@ -165,6 +201,8 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
       status: initialProject?.status || 'Active',
       includedDeliverables: includedDeliverables.length > 0 ? includedDeliverables : ['Custom project deliverables'],
       excludedDeliverables: excludedDeliverables,
+      requirements: projectRequirements,
+      conditions: projectConditions,
       revisionLimit: typeof revisionLimit === 'number' ? revisionLimit : 2,
       revisionsUsed,
       paymentMilestones: initialProject?.paymentMilestones || [
@@ -365,7 +403,11 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-[#17213A]">Original Client Brief (Optional)</span>
-                  <p className="text-[10px] text-[#85899A]">Paste raw client emails, Slack messages, or RFP text to auto-structure deliverables.</p>
+                  <p className="text-[10px] text-[#85899A]">
+                    {isGeminiConfigured && !isDemoMode
+                      ? 'Gemini extracts the agreement terms, deliverables, exclusions, and unclear items.'
+                      : 'Paste raw client emails, Slack messages, or RFP text to auto-structure deliverables.'}
+                  </p>
                 </div>
               </div>
 
@@ -375,7 +417,7 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6946D8] hover:bg-[#5b3bc2] text-white text-xs font-semibold shadow-xs transition-all disabled:opacity-50"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{isExtracting ? 'Analyzing...' : 'Generate Structured Scope'}</span>
+                <span>{isExtracting ? 'Analyzing...' : isGeminiConfigured && !isDemoMode ? 'Extract with Gemini' : 'Generate Structured Scope'}</span>
               </button>
             </div>
 
@@ -395,6 +437,16 @@ export const ScopeBuilder: React.FC<ScopeBuilderProps> = ({
                   <span className="font-semibold">Unspecified in Brief: </span>
                   <span>{missingTerms.join(' • ')}. (Please set below if applicable).</span>
                 </div>
+              </div>
+            )}
+            {(extractedRequirements.length > 0 || extractedConditions.length > 0) && (
+              <div className="p-2.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-900 text-[11px] space-y-1">
+                {extractedRequirements.length > 0 && (
+                  <p><span className="font-semibold">Requirements:</span> {extractedRequirements.join(' • ')}</p>
+                )}
+                {extractedConditions.length > 0 && (
+                  <p><span className="font-semibold">Conditions / unclear terms:</span> {extractedConditions.join(' • ')}</p>
+                )}
               </div>
             )}
           </div>

@@ -63,18 +63,21 @@ Each project receives its own environment equipped with 5 dedicated tabs:
 - **Proposals**: Active, sent, and approved Change Orders.
 - **History**: Chronological project audit trail.
 
-## 🔒 Privacy-First & Zero-Cloud Guarantee
+## 🔒 AI Providers & Client Data
 
-Client contracts and confidential Slack conversations are sensitive business secrets. ScopeShield AI is engineered around local execution:
-- **Local LLM**: Built for open-weight **Qwen3 4B Instruct** running privately via Ollama on your own machine.
-- **Zero Cloud Leakage**: No client messages, budgets, or contract deliverables are dispatched to proprietary cloud APIs.
-- **Offline Fallback Heuristics**: Automatically transitions to verified deterministic contract parsing when Ollama is offline or in sample mode.
+ScopeShield compares each new client request with the saved project's original deliverables, exclusions, revision limits, and terms:
+- **Gemini AI (optional)**: Brief extraction, agreement-aware scope classification, evidence-based reasoning, and client reply generation run through the FastAPI backend. The Gemini key stays server-side.
+- **Local Ollama (optional)**: Run Qwen3 locally as an alternative AI provider.
+- **Sample mode**: If no AI provider is configured, deterministic heuristics remain available.
+
+When Gemini is enabled, project agreement details and client messages are sent to the configured Gemini API through your backend. Review your provider's data policies before submitting confidential client material.
 
 ## 🚀 Quickstart Guide
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v18 or higher)
-- [Ollama](https://ollama.com/) (Optional, for local LLM inference)
+- [Python](https://www.python.org/) (Optional, for the Gemini backend)
+- [Ollama](https://ollama.com/) (Optional, as a local AI alternative)
 
 ### Step 1: Clone & Install Dependencies
 ```bash
@@ -101,8 +104,8 @@ npm run dev
 ```
 Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
-### Step 4: (Optional) Python FastAPI Backend
-For backend API integration and automated pytest test suites:
+### Step 4: (Optional) Enable Gemini AI
+Run the backend in a second terminal:
 ```bash
 cd backend
 python -m venv .venv
@@ -114,8 +117,20 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
+```
+
+From the `backend` directory, copy `.env.example` to `.env` (PowerShell: `Copy-Item .env.example .env`), then set your Gemini API key in that file:
+```env
+GEMINI_API_KEY=your_private_api_key
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+Start the backend:
+```bash
 uvicorn app.main:app --reload --port 8000
 ```
+
+The frontend connects to `http://localhost:8000` by default. To use a different backend, set `VITE_API_URL` in the root `.env` to its URL and restart Vite. Never put the Gemini key in a `VITE_` variable or frontend code.
 - Interactive OpenAPI Swagger Documentation: `http://localhost:8000/docs`
 - Run test suite:
 ```bash
