@@ -188,7 +188,7 @@ ScopeShield AI • Freelancer Scope Protection
     <div className="space-y-8 animate-in fade-in duration-200">
       
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-[#E9E7E2]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-[#E9E7E2] no-print">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-[#7255E8]" />
@@ -232,7 +232,7 @@ ScopeShield AI • Freelancer Scope Protection
       </div>
 
       {/* TWO-COLUMN INTERFACE */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start print-document-layout">
         
         {/* ================= LEFT: EDITABLE PROPOSAL INFORMATION (5 cols) ================= */}
         <div className="lg:col-span-5 bg-white border border-[#E9E7E2] rounded-2xl p-6 shadow-[0_2px_12px_rgba(23,26,43,0.02)] space-y-4 no-print">
@@ -415,7 +415,7 @@ ScopeShield AI • Freelancer Scope Protection
         </div>
 
         {/* ================= RIGHT: LIVE PROPOSAL PREVIEW (7 cols) ================= */}
-        <div className="lg:col-span-7 bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl p-8 sm:p-10 shadow-[0_4px_24px_rgba(23,26,43,0.03)] space-y-8 print:p-0 print:border-none print:shadow-none">
+        <div className="lg:col-span-7 bg-[#FFFFFF] border border-[#E9E7E2] rounded-2xl p-8 sm:p-10 shadow-[0_4px_24px_rgba(23,26,43,0.03)] space-y-8 print-report print:p-0 print:border-none print:shadow-none">
           
           {/* Header of Business Document */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-[#171A2B]">

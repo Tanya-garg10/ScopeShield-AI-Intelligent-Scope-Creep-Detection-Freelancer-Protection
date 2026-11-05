@@ -83,10 +83,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     <div className="min-h-screen bg-[#F8F7F4] text-[#171A2B] flex flex-col antialiased selection:bg-[#F0EDFF] selection:text-[#4933A8]">
       
       {/* 3-PART APPLICATION SHELL */}
-      <div className="flex-1 flex w-full">
+      <div className="flex-1 flex w-full print-shell">
         
         {/* ================= A. NARROW LEFT NAVIGATION RAIL ================= */}
-        <aside className="w-16 sm:w-20 lg:w-60 shrink-0 bg-[#FFFFFF] border-r border-[#E9E7E2] flex flex-col justify-between py-5 px-2 sm:px-3 z-30 select-none">
+        <aside className="w-16 sm:w-20 lg:w-60 shrink-0 bg-[#FFFFFF] border-r border-[#E9E7E2] flex flex-col justify-between py-5 px-2 sm:px-3 z-30 select-none no-print">
           
           <div className="space-y-6">
             
@@ -214,10 +214,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </aside>
 
         {/* ================= B. MAIN WORKSPACE (Largest Area) ================= */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#F8F7F4]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#F8F7F4] print-workspace">
           
           {/* Top Sub-Header */}
-          <header className="h-14 border-b border-[#E9E7E2] bg-[#FFFFFF]/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+          <header className="h-14 border-b border-[#E9E7E2] bg-[#FFFFFF]/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 no-print">
             
             {/* Breadcrumbs & Title */}
             <div className="flex items-center gap-2 text-xs">
@@ -300,7 +300,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </header>
 
           {/* Spacious Editorial Workspace Area */}
-          <main className="flex-1 p-5 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto">
+          <main className="flex-1 p-5 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto print-main">
             {children}
           </main>
 
@@ -308,7 +308,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         {/* ================= C. CONTEXT PANEL (Right-Side Panel) ================= */}
         {contextPanelOpen && (
-          <aside className="w-72 xl:w-80 shrink-0 bg-[#FFFFFF] border-l border-[#E9E7E2] p-5 hidden xl:flex flex-col justify-between space-y-6 z-20 select-none animate-in slide-in-from-right-4 duration-200">
+          <aside className="w-72 xl:w-80 shrink-0 bg-[#FFFFFF] border-l border-[#E9E7E2] p-5 hidden xl:flex flex-col justify-between space-y-6 z-20 select-none animate-in slide-in-from-right-4 duration-200 no-print">
             
             <div className="space-y-6">
               

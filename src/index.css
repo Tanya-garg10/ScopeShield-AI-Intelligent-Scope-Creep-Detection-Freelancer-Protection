@@ -77,14 +77,37 @@
 
 /* Print styling for PDF proposal download */
 @media print {
+  @page {
+    margin: 12mm;
+  }
+
   body {
     background: white !important;
     color: black !important;
   }
+
   .no-print {
     display: none !important;
   }
+
   .print-only {
     display: block !important;
+  }
+
+  .print-shell,
+  .print-workspace,
+  .print-document-layout {
+    display: block !important;
+  }
+
+  .print-main,
+  .print-report {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .print-main {
+    padding: 0 !important;
   }
 }
